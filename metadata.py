@@ -6,7 +6,7 @@ from PIL import Image
 import io
 from utils import logger
 
-def download_thumbnail(thumbnail_url):
+def baixar_thumbnail(thumbnail_url):
     """Baixa a thumbnail do vídeo."""
     try:
         response = requests.get(thumbnail_url, stream=True)
@@ -19,7 +19,7 @@ def download_thumbnail(thumbnail_url):
         logger.error(f"Erro ao baixar thumbnail: {str(e)}")
         return None
 
-def apply_metadata(mp3_path, title, artist=None, album=None, thumbnail_data=None):
+def aplicar_metadados(mp3_path, title, artist=None, album=None, thumbnail_data=None):
     """Aplica metadados a um arquivo MP3."""
     try:
         # Inicializar tags ID3
@@ -76,7 +76,7 @@ def apply_metadata(mp3_path, title, artist=None, album=None, thumbnail_data=None
         logger.error(f"Erro ao aplicar metadados: {str(e)}")
         return False
 
-def extract_artist_from_title(title):
+def extrair_artista_do_titulo(title):
     """Tenta extrair o artista do título do vídeo."""
     if ' - ' in title:
         parts = title.split(' - ', 1)

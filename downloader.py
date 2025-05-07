@@ -2,26 +2,26 @@ import os
 import re
 from yt_dlp import YoutubeDL
 from PyQt5.QtCore import QObject, pyqtSignal
-from utils import logger, validate_youtube_url, sanitize_filename
-from metadata import apply_metadata, extract_artist_from_title, download_thumbnail
-from history import add_to_history
+from utils import logger, validar_url_youtube, sanitizar_nome_arquivo
+from metadata import aplicar_metadados, extrair_artista_do_titulo, baixar_thumbnail
+from history import adicionar_ao_historico
 
-class DownloadManager(QObject):
-    progress_signal = pyqtSignal(int, dict)
-    error_signal = pyqtSignal(str)
-    success_signal = pyqtSignal(str, dict)
-    info_signal = pyqtSignal(dict)
+class GerenciadorDownload(QObject):
+    sinal_progresso = pyqtSignal(int, dict)
+    sinal_erro = pyqtSignal(str)
+    sinal_sucesso = pyqtSignal(str, dict)
+    sinal_info = pyqtSignal(dict)
     
     def __init__(self):
         super().__init__()
-        self.current_download = None
-        self.should_cancel = False
+        self.download_atual = None
+        self.deve_cancelar = False
     
-    def extract_info(self, url):
+    def extrair_info(self, url):
         """Extrai informações do vídeo sem baixar."""
-        is_valid, msg = validate_youtube_url(url)
+        is_valid, msg = validar_url_youtube(url)
         if not is_valid:
-            self.error_signal.emit(msg)
+            self.sinal_erro.emit(msg)
             return None
             
         ydl_opts = {
@@ -32,16 +32,16 @@ class DownloadManager(QObject):
         try:
             with YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
-                self.info_signal.emit(info)
+                self.sinal_info.emit(info)
                 return info
         except Exception as e:
             logger.error(f"Erro ao extrair informações: {str(e)}")
-            self.error_signal.emit(f"Erro ao obter informações do vídeo: {str(e)}")
+            self.sinal_erro.emit(f"Erro ao obter informações do vídeo: {str(e)}")
             return None
     
-    def hook(self, d):
-        """Callback para atualizar o progresso de download."""
-        if self.should_cancel:
+    def gancho(self, d):
+        """Atualizar o progresso de download."""
+        if self.deve_cancelar:
             raise Exception("Download cancelado pelo usuário")
             
         if d['status'] == 'downloading':
@@ -56,20 +56,20 @@ class DownloadManager(QObject):
                 'total_bytes': d.get('total_bytes', 0)
             }
             
-            self.progress_signal.emit(int(progress_float), info)
+            self.sinal_progresso.emit(int(progress_float), info)
     
-    def cancel_download(self):
+    def cancelar_download(self):
         """Cancela o download atual."""
-        self.should_cancel = True
+        self.deve_cancelar = True
         logger.info("Download cancelado pelo usuário")
     
-    def download_audio(self, url, caminho, quality="320"):
+    def baixar_audio(self, url, caminho, quality="320"):
         """Baixa áudio de vídeo do YouTube."""
-        self.should_cancel = False
+        self.deve_cancelar = False
         
-        is_valid, msg_or_url = validate_youtube_url(url)
+        is_valid, msg_or_url = validar_url_youtube(url)
         if not is_valid:
-            self.error_signal.emit(msg_or_url)
+            self.sinal_erro.emit(msg_or_url)
             return
         
         url = msg_or_url  # URL validada
@@ -80,7 +80,7 @@ class DownloadManager(QObject):
             except Exception as e:
                 error_msg = f"Não foi possível criar a pasta: {str(e)}"
                 logger.error(error_msg)
-                self.error_signal.emit(error_msg)
+                self.sinal_erro.emit(error_msg)
                 return
         
         ydl_opts = {
@@ -93,7 +93,7 @@ class DownloadManager(QObject):
             'outtmpl': os.path.join(caminho, '%(title)s.%(ext)s'),
             'quiet': True,
             'no_warnings': True,
-            'progress_hooks': [self.hook],
+            'progress_hooks': [self.gancho],
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0',
                 'Accept-Language': 'pt-BR,pt;q=0.9'
@@ -110,22 +110,22 @@ class DownloadManager(QObject):
                 # Baixar thumbnail
                 thumbnail_data = None
                 if thumbnail:
-                    thumbnail_data = download_thumbnail(thumbnail)
+                    thumbnail_data = baixar_thumbnail(thumbnail)
                 
                 # Baixar áudio
-                if not self.should_cancel:
+                if not self.deve_cancelar:
                     ydl.download([url])
                     
                     # Caminho do arquivo baixado
-                    filename = sanitize_filename(f"{title}.mp3")
+                    filename = sanitizar_nome_arquivo(f"{title}.mp3")
                     file_path = os.path.join(caminho, filename)
                     
                     # Extrair artista e aplicar metadados
-                    artist, song_title = extract_artist_from_title(title)
-                    apply_metadata(file_path, song_title, artist, "YouTube Download", thumbnail_data)
+                    artist, song_title = extrair_artista_do_titulo(title)
+                    aplicar_metadados(file_path, song_title, artist, "YouTube Download", thumbnail_data)
                     
                     # Adicionar ao histórico
-                    add_to_history(url, title, "audio", file_path)
+                    adicionar_ao_historico(url, title, "audio", file_path)
                     
                     # Emitir sinal de sucesso com informações
                     success_info = {
@@ -134,19 +134,19 @@ class DownloadManager(QObject):
                         'path': file_path,
                         'has_metadata': True
                     }
-                    self.success_signal.emit(caminho, success_info)
+                    self.sinal_sucesso.emit(caminho, success_info)
         except Exception as e:
             error_msg = f"Erro ao baixar áudio: {str(e)}"
             logger.error(error_msg)
-            self.error_signal.emit(error_msg)
+            self.sinal_erro.emit(error_msg)
     
-    def download_video(self, url, caminho, format="mp4", quality="720p"):
+    def baixar_video(self, url, caminho, format="mp4", quality="720p"):
         """Baixa vídeo do YouTube."""
-        self.should_cancel = False
+        self.deve_cancelar = False
         
-        is_valid, msg_or_url = validate_youtube_url(url)
+        is_valid, msg_or_url = validar_url_youtube(url)
         if not is_valid:
-            self.error_signal.emit(msg_or_url)
+            self.sinal_erro.emit(msg_or_url)
             return
         
         url = msg_or_url  # URL validada
@@ -157,7 +157,7 @@ class DownloadManager(QObject):
             except Exception as e:
                 error_msg = f"Não foi possível criar a pasta: {str(e)}"
                 logger.error(error_msg)
-                self.error_signal.emit(error_msg)
+                self.sinal_erro.emit(error_msg)
                 return
         
         # Mapear qualidade para formato yt-dlp
@@ -176,7 +176,7 @@ class DownloadManager(QObject):
             'outtmpl': os.path.join(caminho, '%(title)s.%(ext)s'),
             'quiet': True,
             'no_warnings': True,
-            'progress_hooks': [self.hook],
+            'progress_hooks': [self.gancho],
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0',
                 'Accept-Language': 'pt-BR,pt;q=0.9'
@@ -190,15 +190,15 @@ class DownloadManager(QObject):
                 title = info.get('title', 'Unknown Title')
                 
                 # Baixar vídeo
-                if not self.should_cancel:
+                if not self.deve_cancelar:
                     ydl.download([url])
                     
                     # Caminho do arquivo baixado
-                    filename = sanitize_filename(f"{title}.{format.lower()}")
+                    filename = sanitizar_nome_arquivo(f"{title}.{format.lower()}")
                     file_path = os.path.join(caminho, filename)
                     
                     # Adicionar ao histórico
-                    add_to_history(url, title, "video", file_path)
+                    adicionar_ao_historico(url, title, "video", file_path)
                     
                     # Emitir sinal de sucesso com informações
                     success_info = {
@@ -207,18 +207,18 @@ class DownloadManager(QObject):
                         'path': file_path,
                         'quality': quality
                     }
-                    self.success_signal.emit(caminho, success_info)
+                    self.sinal_sucesso.emit(caminho, success_info)
         except Exception as e:
             error_msg = f"Erro ao baixar vídeo: {str(e)}"
             logger.error(error_msg)
-            self.error_signal.emit(error_msg)
+            self.sinal_erro.emit(error_msg)
 
 # Função de compatibilidade com a versão anterior
 def baixar_audio(url, caminho, progress_callback=None):
     """Função de compatibilidade para versões anteriores."""
-    manager = DownloadManager()
+    gerenciador = GerenciadorDownload()
     if progress_callback:
-        manager.progress_signal.connect(
+        gerenciador.sinal_progresso.connect(
             lambda value, _: progress_callback.emit(value)
         )
-    manager.download_audio(url, caminho)
+    gerenciador.baixar_audio(url, caminho)

@@ -3,35 +3,35 @@ import os
 from datetime import datetime
 from utils import logger
 
-HISTORY_FILE = "download_history.json"
+ARQUIVO_HISTORICO = "download_history.json"
 
-def load_history():
+def carregar_historico():
     """Carrega o histórico de downloads."""
     try:
-        if os.path.exists(HISTORY_FILE):
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+        if os.path.exists(ARQUIVO_HISTORICO):
+            with open(ARQUIVO_HISTORICO, "r", encoding="utf-8") as f:
                 return json.load(f)
         return {"downloads": []}
     except Exception as e:
         logger.error(f"Erro ao carregar histórico: {str(e)}")
         return {"downloads": []}
 
-def save_history(history_data):
+def salvar_historico(history_data):
     """Salva o histórico de downloads."""
     try:
-        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        with open(ARQUIVO_HISTORICO, "w", encoding="utf-8") as f:
             json.dump(history_data, f, indent=2)
         return True
     except Exception as e:
         logger.error(f"Erro ao salvar histórico: {str(e)}")
         return False
 
-def add_to_history(url, title, format_type, file_path):
+def adicionar_ao_historico(url, title, format_type, file_path):
     """Adiciona um download ao histórico."""
-    history = load_history()
+    historico = carregar_historico()
     
     # Criar novo registro
-    new_entry = {
+    novo_registro = {
         "url": url,
         "title": title,
         "format": format_type,  # "audio" ou "video"
@@ -40,20 +40,20 @@ def add_to_history(url, title, format_type, file_path):
     }
     
     # Adicionar ao início da lista (mais recente primeiro)
-    history["downloads"].insert(0, new_entry)
+    historico["downloads"].insert(0, novo_registro)
     
     # Limitar o histórico a 100 itens
-    if len(history["downloads"]) > 100:
-        history["downloads"] = history["downloads"][:100]
+    if len(historico["downloads"]) > 100:
+        historico["downloads"] = historico["downloads"][:100]
     
     # Salvar histórico atualizado
-    return save_history(history)
+    return salvar_historico(historico)
 
-def clear_history():
+def limpar_historico():
     """Limpa todo o histórico de downloads."""
-    return save_history({"downloads": []})
+    return salvar_historico({"downloads": []})
 
-def get_recent_downloads(limit=10):
+def obter_downloads_recentes(limit=10):
     """Retorna os downloads mais recentes."""
-    history = load_history()
-    return history["downloads"][:limit]
+    historico = carregar_historico()
+    return historico["downloads"][:limit]

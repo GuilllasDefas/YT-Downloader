@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 import urllib.parse
 
-def setup_logging():
+def configurar_logging():
     """Configura o sistema de logging para diagnóstico do aplicativo."""
     log_dir = Path('logs')
     log_dir.mkdir(exist_ok=True)
@@ -22,9 +22,9 @@ def setup_logging():
     )
     return logging.getLogger('youtube_downloader')
 
-logger = setup_logging()
+logger = configurar_logging()
 
-def check_dependencies():
+def verificar_dependencias():
     """Verifica se todas as dependências necessárias estão instaladas."""
     missing_deps = []
     
@@ -48,7 +48,7 @@ def check_dependencies():
     
     return missing_deps
 
-def validate_youtube_url(url):
+def validar_url_youtube(url):
     """Valida se a URL é uma URL válida do YouTube."""
     if not url:
         return False, "URL não pode estar vazia"
@@ -71,12 +71,12 @@ def validate_youtube_url(url):
     
     return True, url
 
-def sanitize_filename(filename):
+def sanitizar_nome_arquivo(filename):
     """Remove caracteres inválidos de nomes de arquivos."""
     invalid_chars = r'[<>:"/\\|?*]'
     return re.sub(invalid_chars, '_', filename)
 
-def get_file_size_str(size_in_bytes):
+def obter_tamanho_arquivo_str(size_in_bytes):
     """Converte tamanho em bytes para formato legível."""
     if size_in_bytes < 1024:
         return f"{size_in_bytes} B"

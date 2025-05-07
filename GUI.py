@@ -10,21 +10,21 @@ import os
 import sys
 from functools import partial
 
-from downloader import DownloadManager
-from config import load_config, save_config, update_config_value
-from history import get_recent_downloads, clear_history
-from utils import check_dependencies, logger, validate_youtube_url
-from metadata import extract_artist_from_title
+from downloader import GerenciadorDownload
+from config import carregar_config, salvar_config, atualizar_valor_config
+from history import obter_downloads_recentes, limpar_historico
+from utils import verificar_dependencias, logger, validar_url_youtube
+from metadata import extrair_artista_do_titulo
 
-class DownloadThread(QThread):
-    progress_signal = pyqtSignal(int, dict)
-    error_signal = pyqtSignal(str)
-    success_signal = pyqtSignal(str, dict)
-    info_signal = pyqtSignal(dict)
+class ThreadDownload(QThread):
+    sinal_progresso = pyqtSignal(int, dict)
+    sinal_erro = pyqtSignal(str)
+    sinal_sucesso = pyqtSignal(str, dict)
+    sinal_info = pyqtSignal(dict)
 
-    def __init__(self, download_manager, url, caminho, is_audio=True, quality="320", video_format="mp4", video_quality="720p"):
+    def __init__(self, gerenciador_download, url, caminho, is_audio=True, quality="320", video_format="mp4", video_quality="720p"):
         super().__init__()
-        self.download_manager = download_manager
+        self.gerenciador_download = gerenciador_download
         self.url = url
         self.caminho = caminho
         self.is_audio = is_audio
@@ -33,242 +33,242 @@ class DownloadThread(QThread):
         self.video_quality = video_quality
         
         # Conectar sinais do gerenciador
-        self.download_manager.progress_signal.connect(self.progress_signal)
-        self.download_manager.error_signal.connect(self.error_signal)
-        self.download_manager.success_signal.connect(self.success_signal)
-        self.download_manager.info_signal.connect(self.info_signal)
+        self.gerenciador_download.sinal_progresso.connect(self.sinal_progresso)
+        self.gerenciador_download.sinal_erro.connect(self.sinal_erro)
+        self.gerenciador_download.sinal_sucesso.connect(self.sinal_sucesso)
+        self.gerenciador_download.sinal_info.connect(self.sinal_info)
 
     def run(self):
         try:
             if self.is_audio:
-                self.download_manager.download_audio(self.url, self.caminho, self.audio_quality)
+                self.gerenciador_download.baixar_audio(self.url, self.caminho, self.audio_quality)
             else:
-                self.download_manager.download_video(self.url, self.caminho, self.video_format, self.video_quality)
+                self.gerenciador_download.baixar_video(self.url, self.caminho, self.video_format, self.video_quality)
         except Exception as e:
-            self.error_signal.emit(str(e))
+            self.sinal_erro.emit(str(e))
     
-    def cancel(self):
-        self.download_manager.cancel_download()
+    def cancelar(self):
+        self.gerenciador_download.cancelar_download()
 
-class SettingsDialog(QDialog):
+class DialogoConfiguracoes(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent
-        self.config = load_config()
+        self.config = carregar_config()
         self.setWindowTitle("Configurações")
         self.setMinimumWidth(400)
-        self.init_ui()
+        self.iniciar_ui()
     
-    def init_ui(self):
+    def iniciar_ui(self):
         layout = QVBoxLayout()
         
         # Tema
-        theme_group = QGroupBox("Tema da Interface")
-        theme_layout = QHBoxLayout()
+        grupo_tema = QGroupBox("Tema da Interface")
+        layout_tema = QHBoxLayout()
         
-        self.theme_dark = QRadioButton("Escuro")
-        self.theme_light = QRadioButton("Claro")
+        self.tema_escuro = QRadioButton("Escuro")
+        self.tema_claro = QRadioButton("Claro")
         
         if self.config["theme"] == "dark":
-            self.theme_dark.setChecked(True)
+            self.tema_escuro.setChecked(True)
         else:
-            self.theme_light.setChecked(True)
+            self.tema_claro.setChecked(True)
         
-        theme_layout.addWidget(self.theme_dark)
-        theme_layout.addWidget(self.theme_light)
-        theme_group.setLayout(theme_layout)
-        layout.addWidget(theme_group)
+        layout_tema.addWidget(self.tema_escuro)
+        layout_tema.addWidget(self.tema_claro)
+        grupo_tema.setLayout(layout_tema)
+        layout.addWidget(grupo_tema)
         
         # Qualidade de Áudio
-        audio_group = QGroupBox("Qualidade de Áudio")
-        audio_layout = QGridLayout()
+        grupo_audio = QGroupBox("Qualidade de Áudio")
+        layout_audio = QGridLayout()
         
-        audio_layout.addWidget(QLabel("Qualidade MP3:"), 0, 0)
-        self.audio_quality = QComboBox()
-        self.audio_quality.addItems(["128 kbps", "192 kbps", "320 kbps"])
+        layout_audio.addWidget(QLabel("Qualidade MP3:"), 0, 0)
+        self.qualidade_audio = QComboBox()
+        self.qualidade_audio.addItems(["128 kbps", "192 kbps", "320 kbps"])
         
         # Definir qualidade padrão
-        quality_map = {"128": 0, "192": 1, "320": 2}
-        self.audio_quality.setCurrentIndex(quality_map.get(self.config["audio_quality"], 2))
+        mapa_qualidade = {"128": 0, "192": 1, "320": 2}
+        self.qualidade_audio.setCurrentIndex(mapa_qualidade.get(self.config["audio_quality"], 2))
         
-        audio_layout.addWidget(self.audio_quality, 0, 1)
-        audio_group.setLayout(audio_layout)
-        layout.addWidget(audio_group)
+        layout_audio.addWidget(self.qualidade_audio, 0, 1)
+        grupo_audio.setLayout(layout_audio)
+        layout.addWidget(grupo_audio)
         
         # Opções de Vídeo
-        video_group = QGroupBox("Opções de Vídeo")
-        video_layout = QGridLayout()
+        grupo_video = QGroupBox("Opções de Vídeo")
+        layout_video = QGridLayout()
         
-        video_layout.addWidget(QLabel("Formato:"), 0, 0)
-        self.video_format = QComboBox()
-        self.video_format.addItems(["MP4", "MKV"])
+        layout_video.addWidget(QLabel("Formato:"), 0, 0)
+        self.formato_video = QComboBox()
+        self.formato_video.addItems(["MP4", "MKV"])
         
-        format_index = 0 if self.config["video_format"].lower() == "mp4" else 1
-        self.video_format.setCurrentIndex(format_index)
+        indice_formato = 0 if self.config["video_format"].lower() == "mp4" else 1
+        self.formato_video.setCurrentIndex(indice_formato)
         
-        video_layout.addWidget(self.video_format, 0, 1)
+        layout_video.addWidget(self.formato_video, 0, 1)
         
-        video_layout.addWidget(QLabel("Qualidade Padrão:"), 1, 0)
-        self.video_quality = QComboBox()
-        self.video_quality.addItems(["360p", "480p", "720p", "1080p"])
+        layout_video.addWidget(QLabel("Qualidade Padrão:"), 1, 0)
+        self.qualidade_video = QComboBox()
+        self.qualidade_video.addItems(["360p", "480p", "720p", "1080p"])
         
-        quality_index = {"360p": 0, "480p": 1, "720p": 2, "1080p": 3}
-        self.video_quality.setCurrentIndex(quality_index.get(self.config["video_quality"], 2))
+        indice_qualidade = {"360p": 0, "480p": 1, "720p": 2, "1080p": 3}
+        self.qualidade_video.setCurrentIndex(indice_qualidade.get(self.config["video_quality"], 2))
         
-        video_layout.addWidget(self.video_quality, 1, 1)
-        video_group.setLayout(video_layout)
-        layout.addWidget(video_group)
+        layout_video.addWidget(self.qualidade_video, 1, 1)
+        grupo_video.setLayout(layout_video)
+        layout.addWidget(grupo_video)
         
         # Metadados
-        metadata_group = QGroupBox("Metadados")
-        metadata_layout = QVBoxLayout()
+        grupo_metadados = QGroupBox("Metadados")
+        layout_metadados = QVBoxLayout()
         
-        self.apply_metadata = QCheckBox("Aplicar metadados automaticamente")
-        self.apply_metadata.setChecked(self.config.get("apply_metadata", True))
+        self.aplicar_metadados = QCheckBox("Aplicar metadados automaticamente")
+        self.aplicar_metadados.setChecked(self.config.get("apply_metadata", True))
         
-        self.save_thumbnails = QCheckBox("Salvar thumbnails como capas de álbum")
-        self.save_thumbnails.setChecked(self.config.get("save_thumbnails", True))
+        self.salvar_thumbnails = QCheckBox("Salvar thumbnails como capas de álbum")
+        self.salvar_thumbnails.setChecked(self.config.get("save_thumbnails", True))
         
-        metadata_layout.addWidget(self.apply_metadata)
-        metadata_layout.addWidget(self.save_thumbnails)
-        metadata_group.setLayout(metadata_layout)
-        layout.addWidget(metadata_group)
+        layout_metadados.addWidget(self.aplicar_metadados)
+        layout_metadados.addWidget(self.salvar_thumbnails)
+        grupo_metadados.setLayout(layout_metadados)
+        layout.addWidget(grupo_metadados)
         
         # Botões
-        buttons_layout = QHBoxLayout()
+        layout_botoes = QHBoxLayout()
         
-        self.save_button = QPushButton("Salvar")
-        self.save_button.clicked.connect(self.save_settings)
+        self.botao_salvar = QPushButton("Salvar")
+        self.botao_salvar.clicked.connect(self.salvar_configuracoes)
         
-        self.cancel_button = QPushButton("Cancelar")
-        self.cancel_button.clicked.connect(self.reject)
+        self.botao_cancelar = QPushButton("Cancelar")
+        self.botao_cancelar.clicked.connect(self.reject)
         
-        buttons_layout.addWidget(self.cancel_button)
-        buttons_layout.addWidget(self.save_button)
+        layout_botoes.addWidget(self.botao_cancelar)
+        layout_botoes.addWidget(self.botao_salvar)
         
-        layout.addLayout(buttons_layout)
+        layout.addLayout(layout_botoes)
         self.setLayout(layout)
     
-    def save_settings(self):
+    def salvar_configuracoes(self):
         # Tema
-        new_theme = "dark" if self.theme_dark.isChecked() else "light"
+        novo_tema = "dark" if self.tema_escuro.isChecked() else "light"
         
         # Qualidade de áudio
-        quality_map = {0: "128", 1: "192", 2: "320"}
-        new_audio_quality = quality_map[self.audio_quality.currentIndex()]
+        mapa_qualidade = {0: "128", 1: "192", 2: "320"}
+        nova_qualidade_audio = mapa_qualidade[self.qualidade_audio.currentIndex()]
         
         # Formato de vídeo
-        new_video_format = "mp4" if self.video_format.currentIndex() == 0 else "mkv"
+        novo_formato_video = "mp4" if self.formato_video.currentIndex() == 0 else "mkv"
         
         # Qualidade de vídeo
-        quality_map = {0: "360p", 1: "480p", 2: "720p", 3: "1080p"}
-        new_video_quality = quality_map[self.video_quality.currentIndex()]
+        mapa_qualidade = {0: "360p", 1: "480p", 2: "720p", 3: "1080p"}
+        nova_qualidade_video = mapa_qualidade[self.qualidade_video.currentIndex()]
         
         # Atualizar configurações
-        self.config["theme"] = new_theme
-        self.config["audio_quality"] = new_audio_quality
-        self.config["video_format"] = new_video_format
-        self.config["video_quality"] = new_video_quality
-        self.config["apply_metadata"] = self.apply_metadata.isChecked()
-        self.config["save_thumbnails"] = self.save_thumbnails.isChecked()
+        self.config["theme"] = novo_tema
+        self.config["audio_quality"] = nova_qualidade_audio
+        self.config["video_format"] = novo_formato_video
+        self.config["video_quality"] = nova_qualidade_video
+        self.config["apply_metadata"] = self.aplicar_metadados.isChecked()
+        self.config["save_thumbnails"] = self.salvar_thumbnails.isChecked()
         
         # Salvar
-        save_config(self.config)
+        salvar_config(self.config)
         
         # Aplicar tema
         if self.parent:
-            self.parent.apply_theme(new_theme)
+            self.parent.aplicar_tema(novo_tema)
         
         self.accept()
 
-class HistoryDialog(QDialog):
-    url_selected = pyqtSignal(str)
+class DialogoHistorico(QDialog):
+    url_selecionada = pyqtSignal(str)
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Histórico de Downloads")
         self.setMinimumSize(600, 400)
-        self.init_ui()
+        self.iniciar_ui()
     
-    def init_ui(self):
+    def iniciar_ui(self):
         layout = QVBoxLayout()
         
         # Tabela de histórico
-        self.history_table = QTableWidget()
-        self.history_table.setColumnCount(4)
-        self.history_table.setHorizontalHeaderLabels(["Título", "Formato", "Data", "Caminho"])
-        self.history_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.history_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.history_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.history_table.doubleClicked.connect(self.on_item_double_clicked)
+        self.tabela_historico = QTableWidget()
+        self.tabela_historico.setColumnCount(4)
+        self.tabela_historico.setHorizontalHeaderLabels(["Título", "Formato", "Data", "Caminho"])
+        self.tabela_historico.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.tabela_historico.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tabela_historico.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.tabela_historico.doubleClicked.connect(self.ao_clicar_item_duplo)
         
-        layout.addWidget(self.history_table)
+        layout.addWidget(self.tabela_historico)
         
         # Botões
-        buttons_layout = QHBoxLayout()
+        layout_botoes = QHBoxLayout()
         
-        self.clear_button = QPushButton("Limpar Histórico")
-        self.clear_button.clicked.connect(self.clear_history)
+        self.botao_limpar = QPushButton("Limpar Histórico")
+        self.botao_limpar.clicked.connect(self.limpar_historico)
         
-        self.use_url_button = QPushButton("Usar URL Selecionada")
-        self.use_url_button.clicked.connect(self.use_selected_url)
+        self.botao_usar_url = QPushButton("Usar URL Selecionada")
+        self.botao_usar_url.clicked.connect(self.usar_url_selecionada)
         
-        self.close_button = QPushButton("Fechar")
-        self.close_button.clicked.connect(self.reject)
+        self.botao_fechar = QPushButton("Fechar")
+        self.botao_fechar.clicked.connect(self.reject)
         
-        buttons_layout.addWidget(self.clear_button)
-        buttons_layout.addWidget(self.use_url_button)
-        buttons_layout.addWidget(self.close_button)
+        layout_botoes.addWidget(self.botao_limpar)
+        layout_botoes.addWidget(self.botao_usar_url)
+        layout_botoes.addWidget(self.botao_fechar)
         
-        layout.addLayout(buttons_layout)
+        layout.addLayout(layout_botoes)
         self.setLayout(layout)
         
         # Carregar histórico
-        self.load_history()
+        self.carregar_historico()
     
-    def load_history(self):
-        downloads = get_recent_downloads(100)
-        self.history_table.setRowCount(len(downloads))
+    def carregar_historico(self):
+        downloads = obter_downloads_recentes(100)
+        self.tabela_historico.setRowCount(len(downloads))
         
         for i, download in enumerate(downloads):
-            self.history_table.setItem(i, 0, QTableWidgetItem(download['title']))
-            self.history_table.setItem(i, 1, QTableWidgetItem(download['format']))
-            self.history_table.setItem(i, 2, QTableWidgetItem(download['date']))
-            self.history_table.setItem(i, 3, QTableWidgetItem(download['path']))
+            self.tabela_historico.setItem(i, 0, QTableWidgetItem(download['title']))
+            self.tabela_historico.setItem(i, 1, QTableWidgetItem(download['format']))
+            self.tabela_historico.setItem(i, 2, QTableWidgetItem(download['date']))
+            self.tabela_historico.setItem(i, 3, QTableWidgetItem(download['path']))
             
             # Armazenar URL como dados de item
-            self.history_table.item(i, 0).setData(Qt.UserRole, download['url'])
+            self.tabela_historico.item(i, 0).setData(Qt.UserRole, download['url'])
     
-    def on_item_double_clicked(self, index):
+    def ao_clicar_item_duplo(self, index):
         row = index.row()
-        url = self.history_table.item(row, 0).data(Qt.UserRole)
-        self.url_selected.emit(url)
+        url = self.tabela_historico.item(row, 0).data(Qt.UserRole)
+        self.url_selecionada.emit(url)
         self.accept()
     
-    def use_selected_url(self):
-        selected_rows = self.history_table.selectionModel().selectedRows()
-        if selected_rows:
-            row = selected_rows[0].row()
-            url = self.history_table.item(row, 0).data(Qt.UserRole)
-            self.url_selected.emit(url)
+    def usar_url_selecionada(self):
+        linhas_selecionadas = self.tabela_historico.selectionModel().selectedRows()
+        if linhas_selecionadas:
+            row = linhas_selecionadas[0].row()
+            url = self.tabela_historico.item(row, 0).data(Qt.UserRole)
+            self.url_selecionada.emit(url)
             self.accept()
     
-    def clear_history(self):
-        reply = QMessageBox.question(self, 'Confirmação', 
+    def limpar_historico(self):
+        resposta = QMessageBox.question(self, 'Confirmação', 
                                      "Tem certeza que deseja limpar todo o histórico?",
                                      QMessageBox.Yes | QMessageBox.No, 
                                      QMessageBox.No)
         
-        if reply == QMessageBox.Yes:
-            clear_history()
-            self.history_table.setRowCount(0)
+        if resposta == QMessageBox.Yes:
+            limpar_historico()
+            self.tabela_historico.setRowCount(0)
 
-class YouTubeDownloaderWindow(QMainWindow):
+class JanelaDownloaderYouTube(QMainWindow):
     def __init__(self):
         super().__init__()
         
         # Verificar dependências
-        missing_deps = check_dependencies()
+        missing_deps = verificar_dependencias()
         if missing_deps:
             QMessageBox.critical(
                 self, 
@@ -277,28 +277,28 @@ class YouTubeDownloaderWindow(QMainWindow):
                 "Por favor, instale-as antes de continuar."
             )
         
-        self.download_manager = DownloadManager()
+        self.gerenciador_download = GerenciadorDownload()
         self.thread = None
-        self.config_data = load_config()
-        self.default_path = self.config_data.get("default_path", "C:/downloads")
+        self.dados_config = carregar_config()
+        self.caminho_padrao = self.dados_config.get("default_path", "C:/downloads")
         
         # Configurar interface - com busca robusta de ícone
-        self.load_application_icon()
+        self.carregar_icone_aplicacao()
         self.setWindowTitle("YouTube Downloader")
-        self.apply_theme(self.config_data.get("theme", "dark"))
+        self.aplicar_tema(self.dados_config.get("theme", "dark"))
         self.resize(600, 300)
         
         # Criar menu e widgets
-        self.create_menu()
-        self.create_widgets()
+        self.criar_menu()
+        self.criar_widgets()
     
-    def load_application_icon(self):
+    def carregar_icone_aplicacao(self):
         """Tenta carregar o ícone do aplicativo de vários locais possíveis."""
         # Lista de possíveis nomes de arquivo de ícone
-        icon_names = ['logo.ico', 'Youtube.ico', 'youtube.ico', 'icon.ico']
+        nomes_icone = ['logo.ico', 'Youtube.ico', 'youtube.ico', 'icon.ico']
         
         # Lista de possíveis diretórios onde o ícone pode estar
-        possible_dirs = [
+        diretorios_possiveis = [
             os.path.dirname(os.path.abspath(__file__)),  # Diretório atual
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),  # Diretório pai
             os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources'),  # Pasta de recursos
@@ -306,19 +306,19 @@ class YouTubeDownloaderWindow(QMainWindow):
         ]
         
         # Tentar cada combinação
-        for dir_path in possible_dirs:
-            for icon_name in icon_names:
-                icon_path = os.path.join(dir_path, icon_name)
-                if os.path.exists(icon_path):
-                    logger.info(f"Ícone encontrado: {icon_path}")
-                    self.setWindowIcon(QtGui.QIcon(icon_path))
+        for dir_path in diretorios_possiveis:
+            for nome_icone in nomes_icone:
+                caminho_icone = os.path.join(dir_path, nome_icone)
+                if os.path.exists(caminho_icone):
+                    logger.info(f"Ícone encontrado: {caminho_icone}")
+                    self.setWindowIcon(QtGui.QIcon(caminho_icone))
                     return
         
         # Caso o ícone não seja encontrado, usar um ícone padrão ou nenhum
         logger.warning("Nenhum ícone encontrado para o aplicativo")
     
-    def apply_theme(self, theme):
-        if theme == "dark":
+    def aplicar_tema(self, tema):
+        if tema == "dark":
             self.setStyleSheet("""
                 QMainWindow, QDialog, QTabWidget, QWidget {
                     background-color: #23272A;
@@ -501,269 +501,268 @@ class YouTubeDownloaderWindow(QMainWindow):
             """)
         
         # Salvar preferência
-        self.config_data["theme"] = theme
-        save_config(self.config_data)
+        self.dados_config["theme"] = tema
+        salvar_config(self.dados_config)
     
-    def create_menu(self):
+    def criar_menu(self):
         menubar = self.menuBar()
         
         # Menu Arquivo
-        file_menu = menubar.addMenu('Arquivo')
+        menu_arquivo = menubar.addMenu('Arquivo')
         
-        open_history_action = QAction('Histórico de Downloads', self)
-        open_history_action.triggered.connect(self.show_history)
-        file_menu.addAction(open_history_action)
+        acao_historico = QAction('Histórico de Downloads', self)
+        acao_historico.triggered.connect(self.mostrar_historico)
+        menu_arquivo.addAction(acao_historico)
         
-        file_menu.addSeparator()
+        menu_arquivo.addSeparator()
         
-        exit_action = QAction('Sair', self)
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
+        acao_sair = QAction('Sair', self)
+        acao_sair.triggered.connect(self.close)
+        menu_arquivo.addAction(acao_sair)
         
         # Menu Configurações
-        settings_menu = menubar.addMenu('Configurações')
+        menu_configuracoes = menubar.addMenu('Configurações')
         
-        preferences_action = QAction('Preferências', self)
-        preferences_action.triggered.connect(self.show_settings)
-        settings_menu.addAction(preferences_action)
+        acao_preferencias = QAction('Preferências', self)
+        acao_preferencias.triggered.connect(self.mostrar_configuracoes)
+        menu_configuracoes.addAction(acao_preferencias)
         
         # Menu Ajuda
-        help_menu = menubar.addMenu('Ajuda')
+        menu_ajuda = menubar.addMenu('Ajuda')
         
-        about_action = QAction('Sobre', self)
-        about_action.triggered.connect(self.show_about)
-        help_menu.addAction(about_action)
+        acao_sobre = QAction('Sobre', self)
+        acao_sobre.triggered.connect(self.mostrar_sobre)
+        menu_ajuda.addAction(acao_sobre)
         
-        check_deps_action = QAction('Verificar Dependências', self)
-        check_deps_action.triggered.connect(self.check_dependencies)
-        help_menu.addAction(check_deps_action)
+        acao_verificar_dependencias = QAction('Verificar Dependências', self)
+        acao_verificar_dependencias.triggered.connect(self.verificar_dependencias)
+        menu_ajuda.addAction(acao_verificar_dependencias)
     
-    def create_widgets(self):
-        central_widget = QWidget()
-        main_layout = QVBoxLayout(central_widget)
+    def criar_widgets(self):
+        widget_central = QWidget()
+        layout_principal = QVBoxLayout(widget_central)
         
         # Área principal com abas
-        self.tabs = QTabWidget()
+        self.abas = QTabWidget()
         
-        # Tab de Áudio
-        audio_tab = QWidget()
-        audio_layout = QVBoxLayout(audio_tab)
+        # Aba de Áudio
+        aba_audio = QWidget()
+        layout_audio = QVBoxLayout(aba_audio)
         
         # Descrição
-        self.label_description = QLabel("Baixe e converta vídeos do YouTube em MP3")
-        #self.label_description.setStyleSheet("font-weight: bold; font-size: 16px;")
-        audio_layout.addWidget(self.label_description)
+        self.label_descricao = QLabel("Baixe e converta vídeos do YouTube em MP3")
+        layout_audio.addWidget(self.label_descricao)
         
         # URL
-        url_layout = QHBoxLayout()
+        layout_url = QHBoxLayout()
         
         self.label_url = QLabel("Cole o link do vídeo:")
-        url_layout.addWidget(self.label_url)
+        layout_url.addWidget(self.label_url)
         
-        self.entry_url = QLineEdit()
-        url_layout.addWidget(self.entry_url)
+        self.entrada_url = QLineEdit()
+        layout_url.addWidget(self.entrada_url)
         
-        audio_layout.addLayout(url_layout)
+        layout_audio.addLayout(layout_url)
         
         # Pasta destino
-        dest_layout = QHBoxLayout()
+        layout_destino = QHBoxLayout()
         
         self.label_arquivo_desc = QLabel("Pasta destino:")
-        dest_layout.addWidget(self.label_arquivo_desc)
+        layout_destino.addWidget(self.label_arquivo_desc)
         
-        self.entry_arquivo = QLineEdit(self.default_path)
-        dest_layout.addWidget(self.entry_arquivo)
+        self.entrada_arquivo = QLineEdit(self.caminho_padrao)
+        layout_destino.addWidget(self.entrada_arquivo)
         
         self.botao_pasta = QPushButton("Escolher")
         self.botao_pasta.clicked.connect(self.escolher_pasta)
-        dest_layout.addWidget(self.botao_pasta)
+        layout_destino.addWidget(self.botao_pasta)
         
-        audio_layout.addLayout(dest_layout)
+        layout_audio.addLayout(layout_destino)
         
         # Qualidade do áudio
-        quality_layout = QHBoxLayout()
+        layout_qualidade = QHBoxLayout()
         
-        self.label_quality = QLabel("Qualidade:")
-        quality_layout.addWidget(self.label_quality)
+        self.label_qualidade = QLabel("Qualidade:")
+        layout_qualidade.addWidget(self.label_qualidade)
         
-        self.combo_quality = QComboBox()
-        self.combo_quality.addItems(["128 kbps", "192 kbps", "320 kbps"])
+        self.combo_qualidade = QComboBox()
+        self.combo_qualidade.addItems(["128 kbps", "192 kbps", "320 kbps"])
         
         # Definir qualidade padrão
-        quality_map = {"128": 0, "192": 1, "320": 2}
-        self.combo_quality.setCurrentIndex(quality_map.get(self.config_data.get("audio_quality", "320"), 2))
+        mapa_qualidade = {"128": 0, "192": 1, "320": 2}
+        self.combo_qualidade.setCurrentIndex(mapa_qualidade.get(self.dados_config.get("audio_quality", "320"), 2))
         
-        quality_layout.addWidget(self.combo_quality)
-        quality_layout.addStretch()
+        layout_qualidade.addWidget(self.combo_qualidade)
+        layout_qualidade.addStretch()
         
-        audio_layout.addLayout(quality_layout)
+        layout_audio.addLayout(layout_qualidade)
         
         # Botões de ação
-        button_layout = QHBoxLayout()
+        layout_botoes = QHBoxLayout()
         
         self.botao_baixar = QPushButton("Baixar MP3")
         self.botao_baixar.clicked.connect(self.iniciar_download_audio)
-        button_layout.addWidget(self.botao_baixar)
+        layout_botoes.addWidget(self.botao_baixar)
         
         self.botao_cancelar = QPushButton("Cancelar")
         self.botao_cancelar.clicked.connect(self.cancelar_download)
         self.botao_cancelar.setEnabled(False)
-        button_layout.addWidget(self.botao_cancelar)
+        layout_botoes.addWidget(self.botao_cancelar)
         
-        audio_layout.addLayout(button_layout)
+        layout_audio.addLayout(layout_botoes)
         
-        # Tab de Vídeo
-        video_tab = QWidget()
-        video_layout = QVBoxLayout(video_tab)
+        # Aba de Vídeo
+        aba_video = QWidget()
+        layout_video = QVBoxLayout(aba_video)
         
         # Descrição
-        video_layout.addWidget(QLabel("Baixe vídeos do YouTube em MP4 ou MKV"))
+        layout_video.addWidget(QLabel("Baixe vídeos do YouTube em MP4 ou MKV"))
 
         # URL
-        video_url_layout = QHBoxLayout()
+        layout_url_video = QHBoxLayout()
         
-        video_url_layout.addWidget(QLabel("Cole o link do vídeo:"))
+        layout_url_video.addWidget(QLabel("Cole o link do vídeo:"))
         
-        self.video_entry_url = QLineEdit()
-        video_url_layout.addWidget(self.video_entry_url)
+        self.entrada_url_video = QLineEdit()
+        layout_url_video.addWidget(self.entrada_url_video)
         
-        video_layout.addLayout(video_url_layout)
+        layout_video.addLayout(layout_url_video)
         
         # Pasta destino para vídeos
-        video_dest_layout = QHBoxLayout()
+        layout_destino_video = QHBoxLayout()
         
-        video_dest_layout.addWidget(QLabel("Pasta destino:"))
+        layout_destino_video.addWidget(QLabel("Pasta destino:"))
         
-        self.video_entry_arquivo = QLineEdit(self.default_path)
-        video_dest_layout.addWidget(self.video_entry_arquivo)
+        self.entrada_arquivo_video = QLineEdit(self.caminho_padrao)
+        layout_destino_video.addWidget(self.entrada_arquivo_video)
         
-        self.video_botao_pasta = QPushButton("Escolher")
-        self.video_botao_pasta.clicked.connect(self.escolher_pasta_video)
-        video_dest_layout.addWidget(self.video_botao_pasta)
+        self.botao_pasta_video = QPushButton("Escolher")
+        self.botao_pasta_video.clicked.connect(self.escolher_pasta_video)
+        layout_destino_video.addWidget(self.botao_pasta_video)
         
-        video_layout.addLayout(video_dest_layout)
+        layout_video.addLayout(layout_destino_video)
         
         # Opções de vídeo
-        video_options_layout = QHBoxLayout()
+        layout_opcoes_video = QHBoxLayout()
         
         # Formato
-        format_layout = QVBoxLayout()
-        format_layout.addWidget(QLabel("Formato:"))
+        layout_formato = QVBoxLayout()
+        layout_formato.addWidget(QLabel("Formato:"))
         
-        self.combo_format = QComboBox()
-        self.combo_format.addItems(["MP4", "MKV"])
+        self.combo_formato = QComboBox()
+        self.combo_formato.addItems(["MP4", "MKV"])
         
-        format_index = 0 if self.config_data.get("video_format", "mp4").lower() == "mp4" else 1
-        self.combo_format.setCurrentIndex(format_index)
+        indice_formato = 0 if self.dados_config.get("video_format", "mp4").lower() == "mp4" else 1
+        self.combo_formato.setCurrentIndex(indice_formato)
         
-        format_layout.addWidget(self.combo_format)
-        video_options_layout.addLayout(format_layout)
+        layout_formato.addWidget(self.combo_formato)
+        layout_opcoes_video.addLayout(layout_formato)
         
         # Qualidade
-        video_quality_layout = QVBoxLayout()
-        video_quality_layout.addWidget(QLabel("Qualidade:"))
+        layout_qualidade_video = QVBoxLayout()
+        layout_qualidade_video.addWidget(QLabel("Qualidade:"))
         
-        self.combo_video_quality = QComboBox()
-        self.combo_video_quality.addItems(["360p", "480p", "720p", "1080p"])
+        self.combo_qualidade_video = QComboBox()
+        self.combo_qualidade_video.addItems(["360p", "480p", "720p", "1080p"])
         
-        quality_index = {"360p": 0, "480p": 1, "720p": 2, "1080p": 3}
-        self.combo_video_quality.setCurrentIndex(quality_index.get(self.config_data.get("video_quality", "720p"), 2))
+        indice_qualidade = {"360p": 0, "480p": 1, "720p": 2, "1080p": 3}
+        self.combo_qualidade_video.setCurrentIndex(indice_qualidade.get(self.dados_config.get("video_quality", "720p"), 2))
         
-        video_quality_layout.addWidget(self.combo_video_quality)
-        video_options_layout.addLayout(video_quality_layout)
+        layout_qualidade_video.addWidget(self.combo_qualidade_video)
+        layout_opcoes_video.addLayout(layout_qualidade_video)
         
-        video_options_layout.addStretch()
+        layout_opcoes_video.addStretch()
         
-        video_layout.addLayout(video_options_layout)
+        layout_video.addLayout(layout_opcoes_video)
         
         # Botões para vídeo
-        video_button_layout = QHBoxLayout()
+        layout_botoes_video = QHBoxLayout()
         
         self.botao_baixar_video = QPushButton("Baixar Vídeo")
         self.botao_baixar_video.clicked.connect(self.iniciar_download_video)
-        video_button_layout.addWidget(self.botao_baixar_video)
+        layout_botoes_video.addWidget(self.botao_baixar_video)
         
         self.botao_cancelar_video = QPushButton("Cancelar")
         self.botao_cancelar_video.clicked.connect(self.cancelar_download)
         self.botao_cancelar_video.setEnabled(False)
-        video_button_layout.addWidget(self.botao_cancelar_video)
+        layout_botoes_video.addWidget(self.botao_cancelar_video)
         
-        video_layout.addLayout(video_button_layout)
+        layout_video.addLayout(layout_botoes_video)
         
         # Adicionar abas
-        self.tabs.addTab(audio_tab, "Áudio")
-        self.tabs.addTab(video_tab, "Vídeo")
+        self.abas.addTab(aba_audio, "Áudio")
+        self.abas.addTab(aba_video, "Vídeo")
         
-        main_layout.addWidget(self.tabs)
+        layout_principal.addWidget(self.abas)
         
         # Barra de progresso e informações
-        progress_layout = QVBoxLayout()
+        layout_progresso = QVBoxLayout()
         
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setValue(0)
-        progress_layout.addWidget(self.progress_bar)
+        self.barra_progresso = QProgressBar()
+        self.barra_progresso.setValue(0)
+        layout_progresso.addWidget(self.barra_progresso)
         
         self.label_status = QLabel("Pronto para download")
-        progress_layout.addWidget(self.label_status)
+        layout_progresso.addWidget(self.label_status)
         
-        main_layout.addLayout(progress_layout)
+        layout_principal.addLayout(layout_progresso)
         
-        self.setCentralWidget(central_widget)
+        self.setCentralWidget(widget_central)
     
     def escolher_pasta(self):
-        pasta = QFileDialog.getExistingDirectory(self, "Selecione a pasta de destino", self.default_path)
+        pasta = QFileDialog.getExistingDirectory(self, "Selecione a pasta de destino", self.caminho_padrao)
         if pasta:
-            self.entry_arquivo.setText(pasta)
-            self.default_path = pasta
-            self.config_data["default_path"] = pasta
-            save_config(self.config_data)
+            self.entrada_arquivo.setText(pasta)
+            self.caminho_padrao = pasta
+            self.dados_config["default_path"] = pasta
+            salvar_config(self.dados_config)
     
     def escolher_pasta_video(self):
-        pasta = QFileDialog.getExistingDirectory(self, "Selecione a pasta de destino", self.default_path)
+        pasta = QFileDialog.getExistingDirectory(self, "Selecione a pasta de destino", self.caminho_padrao)
         if pasta:
-            self.video_entry_arquivo.setText(pasta)
-            self.default_path = pasta
-            self.config_data["default_path"] = pasta
-            save_config(self.config_data)
+            self.entrada_arquivo_video.setText(pasta)
+            self.caminho_padrao = pasta
+            self.dados_config["default_path"] = pasta
+            salvar_config(self.dados_config)
     
     def iniciar_download_audio(self):
-        url = self.entry_url.text().strip()
-        caminho = self.entry_arquivo.text().strip()
+        url = self.entrada_url.text().strip()
+        caminho = self.entrada_arquivo.text().strip()
         
         # Qualidade selecionada
-        quality_map = {0: "128", 1: "192", 2: "320"}
-        quality = quality_map[self.combo_quality.currentIndex()]
+        mapa_qualidade = {0: "128", 1: "192", 2: "320"}
+        qualidade = mapa_qualidade[self.combo_qualidade.currentIndex()]
         
         if not self.validar_entrada(url, caminho):
             return
         
-        self.config_data["default_path"] = caminho
-        self.config_data["audio_quality"] = quality
-        save_config(self.config_data)
+        self.dados_config["default_path"] = caminho
+        self.dados_config["audio_quality"] = qualidade
+        salvar_config(self.dados_config)
         
-        self.iniciar_download(url, caminho, True, quality)
+        self.iniciar_download(url, caminho, True, qualidade)
     
     def iniciar_download_video(self):
-        url = self.video_entry_url.text().strip()
-        caminho = self.video_entry_arquivo.text().strip()
+        url = self.entrada_url_video.text().strip()
+        caminho = self.entrada_arquivo_video.text().strip()
         
         # Formato e qualidade selecionados
-        video_format = "mp4" if self.combo_format.currentIndex() == 0 else "mkv"
-        quality_map = {0: "360p", 1: "480p", 2: "720p", 3: "1080p"}
-        video_quality = quality_map[self.combo_video_quality.currentIndex()]
+        formato_video = "mp4" if self.combo_formato.currentIndex() == 0 else "mkv"
+        mapa_qualidade = {0: "360p", 1: "480p", 2: "720p", 3: "1080p"}
+        qualidade_video = mapa_qualidade[self.combo_qualidade_video.currentIndex()]
         
         if not self.validar_entrada(url, caminho):
             return
         
-        self.config_data["default_path"] = caminho
-        self.config_data["video_format"] = video_format
-        self.config_data["video_quality"] = video_quality
-        save_config(self.config_data)
+        self.dados_config["default_path"] = caminho
+        self.dados_config["video_format"] = formato_video
+        self.dados_config["video_quality"] = qualidade_video
+        salvar_config(self.dados_config)
         
-        self.iniciar_download(url, caminho, False, None, video_format, video_quality)
+        self.iniciar_download(url, caminho, False, None, formato_video, qualidade_video)
     
     def validar_entrada(self, url, caminho):
-        is_valid, msg = validate_youtube_url(url)
+        is_valid, msg = validar_url_youtube(url)
         if not is_valid:
             QMessageBox.warning(self, "Atenção", msg)
             return False
@@ -781,86 +780,86 @@ class YouTubeDownloaderWindow(QMainWindow):
         self.botao_cancelar_video.setEnabled(True)
         
         self.label_status.setText("Iniciando download...")
-        self.progress_bar.setValue(0)
+        self.barra_progresso.setValue(0)
         
-        self.thread = DownloadThread(
-            self.download_manager, url, caminho, is_audio, 
+        self.thread = ThreadDownload(
+            self.gerenciador_download, url, caminho, is_audio, 
             audio_quality, video_format, video_quality
         )
         
-        self.thread.progress_signal.connect(self.update_progress)
-        self.thread.error_signal.connect(self.download_error)
-        self.thread.success_signal.connect(self.download_success)
-        self.thread.info_signal.connect(self.show_info)
+        self.thread.sinal_progresso.connect(self.atualizar_progresso)
+        self.thread.sinal_erro.connect(self.erro_download)
+        self.thread.sinal_sucesso.connect(self.sucesso_download)
+        self.thread.sinal_info.connect(self.mostrar_info)
         
         self.thread.start()
     
     def cancelar_download(self):
         if self.thread and self.thread.isRunning():
             self.label_status.setText("Cancelando download...")
-            self.thread.cancel()
+            self.thread.cancelar()
     
-    def update_progress(self, value, info):
-        self.progress_bar.setValue(value)
+    def atualizar_progresso(self, value, info):
+        self.barra_progresso.setValue(value)
         
         # Mostrar informações detalhadas
-        status_text = f"Progresso: {value}% | "
+        texto_status = f"Progresso: {value}% | "
         if 'speed' in info:
-            status_text += f"Velocidade: {info['speed']} | "
+            texto_status += f"Velocidade: {info['speed']} | "
         if 'eta' in info:
-            status_text += f"Tempo restante: {info['eta']}"
+            texto_status += f"Tempo restante: {info['eta']}"
             
-        self.label_status.setText(status_text)
+        self.label_status.setText(texto_status)
     
-    def download_error(self, error_message):
-        QMessageBox.critical(self, "Erro", f"Falha na operação:\n{error_message}")
-        self.reset_ui()
+    def erro_download(self, mensagem_erro):
+        QMessageBox.critical(self, "Erro", f"Falha na operação:\n{mensagem_erro}")
+        self.resetar_ui()
     
-    def download_success(self, destino, info):
-        title = info.get('title', 'Arquivo')
-        format_type = info.get('format', 'desconhecido')
+    def sucesso_download(self, destino, info):
+        titulo = info.get('title', 'Arquivo')
+        tipo_formato = info.get('format', 'desconhecido')
         
         QMessageBox.information(
             self, "Sucesso", 
-            f"Download concluído!\n\nTítulo: {title}\nFormato: {format_type.upper()}\nSalvo em:\n{destino}"
+            f"Download concluído!\n\nTítulo: {titulo}\nFormato: {tipo_formato.upper()}\nSalvo em:\n{destino}"
         )
         
-        self.reset_ui()
+        self.resetar_ui()
         
         # Limpar campo de URL para facilitar um novo download
-        if self.tabs.currentIndex() == 0:
-            self.entry_url.clear()
+        if self.abas.currentIndex() == 0:
+            self.entrada_url.clear()
         else:
-            self.video_entry_url.clear()
+            self.entrada_url_video.clear()
     
-    def show_info(self, info):
-        title = info.get('title', 'Vídeo desconhecido')
-        self.label_status.setText(f"Preparando download: {title}")
+    def mostrar_info(self, info):
+        titulo = info.get('title', 'Vídeo desconhecido')
+        self.label_status.setText(f"Preparando download: {titulo}")
     
-    def reset_ui(self):
+    def resetar_ui(self):
         self.botao_baixar.setEnabled(True)
         self.botao_baixar_video.setEnabled(True)
         self.botao_cancelar.setEnabled(False)
         self.botao_cancelar_video.setEnabled(False)
-        self.progress_bar.setValue(0)
+        self.barra_progresso.setValue(0)
         self.label_status.setText("Pronto para download")
     
-    def show_settings(self):
-        dialog = SettingsDialog(self)
-        dialog.exec_()
+    def mostrar_configuracoes(self):
+        dialogo = DialogoConfiguracoes(self)
+        dialogo.exec_()
     
-    def show_history(self):
-        dialog = HistoryDialog(self)
-        dialog.url_selected.connect(self.set_url_from_history)
-        dialog.exec_()
+    def mostrar_historico(self):
+        dialogo = DialogoHistorico(self)
+        dialogo.url_selecionada.connect(self.definir_url_do_historico)
+        dialogo.exec_()
     
-    def set_url_from_history(self, url):
-        if self.tabs.currentIndex() == 0:
-            self.entry_url.setText(url)
+    def definir_url_do_historico(self, url):
+        if self.abas.currentIndex() == 0:
+            self.entrada_url.setText(url)
         else:
-            self.video_entry_url.setText(url)
+            self.entrada_url_video.setText(url)
     
-    def show_about(self):
+    def mostrar_sobre(self):
         QMessageBox.about(
             self, 
             "Sobre YouTube Downloader",
@@ -870,8 +869,8 @@ class YouTubeDownloaderWindow(QMainWindow):
             "Por Guilherme de Freitas Moreira"
         )
     
-    def check_dependencies(self):
-        missing_deps = check_dependencies()
+    def verificar_dependencias(self):
+        missing_deps = verificar_dependencias()
         if missing_deps:
             QMessageBox.warning(
                 self, 
