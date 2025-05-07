@@ -1,3 +1,4 @@
 PyQt5
 yt_dlp
 mutagen
+pillow
