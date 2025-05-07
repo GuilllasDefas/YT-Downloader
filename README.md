@@ -3,7 +3,7 @@
 
 ## Descrição
 
-YouTube Downloader é uma aplicação desktop desenvolvida em Python que permite baixar vídeos e áudios do YouTube de forma simples e eficiente. Com interface amigável, este aplicativo suporta diferentes formatos e qualidades de download.
+YouTube Downloader é uma aplicação desktop desenvolvida em Python que permite baixar vídeos e áudios do YouTube de forma simples e este aplicativo suporta diferentes formatos e qualidades de download.
 
 ## Funcionalidades
 
