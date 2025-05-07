@@ -1,6 +1,5 @@
 # YouTube Downloader
 
-![YouTube Downloader Logo]
 
 ## Descrição
 
