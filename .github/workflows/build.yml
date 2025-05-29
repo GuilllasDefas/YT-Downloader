@@ -3,7 +3,7 @@ name: Build e Release YouTube Downloader
 on:
   push:
     branches:
-      - main
+      - master
 
 permissions:
   contents: write
@@ -35,9 +35,7 @@ jobs:
 
       # 4) Instala dependências e PyInstaller
       - name: Install Dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pyinstaller
+        run: pip install -r requirements.txt
 
       # 5) Gera o .exe usando o arquivo .spec
       - name: Build EXE com arquivo .spec
@@ -58,7 +56,7 @@ jobs:
           [Setup]
           AppName=YouTube Downloader
           AppVersion=$version
-          AppPublisher=Guilherme de Freitas Moreira
+          AppPublisher=GuilllasDefas
           AppPublisherURL=https://github.com/GuilllasDefas/YT-Downloader
           AppSupportURL=https://github.com/GuilllasDefas/YT-Downloader/issues
           AppUpdatesURL=https://github.com/GuilllasDefas/YT-Downloader/releases
@@ -73,6 +71,7 @@ jobs:
           SolidCompression=yes
           WizardStyle=modern
           ArchitecturesInstallIn64BitMode=x64
+          ; Configurações para garantir que o ícone funcione corretamente
           ChangesAssociations=yes
           RestartIfNeededByRun=no
           
