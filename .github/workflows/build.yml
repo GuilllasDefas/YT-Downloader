@@ -41,7 +41,7 @@ jobs:
 
       # 5) Gera o .exe usando o arquivo .spec
       - name: Build EXE com arquivo .spec
-        run: pyinstaller "youtube_downloader.spec"
+        run: pyinstaller "YouTube Downloader.spec"
 
       # 6) Instala Inno Setup
       - name: Install Inno Setup
