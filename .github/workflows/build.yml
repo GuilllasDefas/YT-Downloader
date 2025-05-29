@@ -3,7 +3,7 @@ name: Build e Release YouTube Downloader
 on:
   push:
     branches:
-      - master
+      - develop
 
 permissions:
   contents: write
@@ -78,6 +78,37 @@ jobs:
           pip install --upgrade pip
           pip install ffmpeg-python
           pip install -r requirements.txt
+
+      # 6.5) Instala UPX para compressão de executáveis
+      - name: Install UPX
+        run: |
+          # Baixar UPX
+          $upxUrl = "https://github.com/upx/upx/releases/download/v4.2.1/upx-4.2.1-win64.zip"
+          $upxZip = "upx.zip"
+          $upxDir = "upx"
+          
+          Write-Host "Baixando UPX..."
+          Invoke-WebRequest -Uri $upxUrl -OutFile $upxZip
+          
+          Write-Host "Extraindo UPX..."
+          Expand-Archive -Path $upxZip -DestinationPath $upxDir -Force
+          
+          # Encontrar o executável do UPX
+          $upxExePath = Get-ChildItem -Path $upxDir -Recurse -File -Filter "upx.exe" | Select-Object -First 1 -ExpandProperty FullName
+          $upxDirPath = Split-Path -Parent $upxExePath
+          
+          Write-Host "Caminho do UPX: $upxDirPath"
+          
+          # Adicionar ao PATH
+          $env:PATH = "$upxDirPath;$env:PATH"
+          
+          # Salvar no GITHUB_PATH para próximos steps
+          Add-Content $env:GITHUB_PATH $upxDirPath
+          
+          # Verificar se UPX foi instalado corretamente
+          & "$upxExePath" --version
+          
+          Write-Host "UPX instalado e configurado com sucesso!"
 
       # 7) Gera o .exe usando o arquivo .spec
       - name: Build EXE com arquivo .spec
@@ -183,10 +214,10 @@ jobs:
           body: |           
             ## Melhoria
 
-            - Adicionado botão para abrir pasta selecionada
+            - Prioriza codecs mais universais no download de vídeo
 
           draft: false
-          prerelease: false
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -1,8 +1,9 @@
 import json
 import os
-from utils import logger
+from src.utils.helpers import logger, get_resource_path
 
-ARQUIVO_CONFIG = "config.json"
+# Altere a definição do ARQUIVO_CONFIG
+ARQUIVO_CONFIG = get_resource_path("config.json")
 
 CONFIG_PADRAO = {
     "default_path": "C:/downloads",
@@ -14,7 +15,7 @@ CONFIG_PADRAO = {
     "save_thumbnails": True
 }
 
-APP_VERSION = "1.1.0"  # Versão do aplicativo
+APP_VERSION = "1.1.1"  # Versão do aplicativo
 
 # Informações do repositório para o updater
 REPO_INFO = {

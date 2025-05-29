@@ -1,11 +1,12 @@
 import os
 import re
 import sys
+import subprocess
 from yt_dlp import YoutubeDL
 from PyQt5.QtCore import QObject, pyqtSignal
-from utils import logger, validar_url_youtube, sanitizar_nome_arquivo
-from metadata import aplicar_metadados, extrair_artista_do_titulo, baixar_thumbnail
-from history import adicionar_ao_historico
+from src.utils.helpers import logger, validar_url_youtube, sanitizar_nome_arquivo
+from src.core.metadata import aplicar_metadados, extrair_artista_do_titulo, baixar_thumbnail
+from src.core.history import adicionar_ao_historico
 
 def configurar_ffmpeg():
     """Configura o FFmpeg para o yt-dlp funcionar em executáveis compilados."""
@@ -16,6 +17,16 @@ def configurar_ffmpeg():
         return True
     except:
         logger.warning("ffmpeg-python não encontrado. Tentando FFmpeg do sistema...")
+        return False
+
+def verificar_ffmpeg():
+    """Verifica se o FFmpeg está disponível no sistema."""
+    try:
+        subprocess.run(['ffmpeg', '-version'], 
+                      stdout=subprocess.PIPE, 
+                      stderr=subprocess.PIPE)
+        return True
+    except:
         return False
 
 class GerenciadorDownload(QObject):
@@ -198,15 +209,15 @@ class GerenciadorDownload(QObject):
                 self.sinal_erro.emit(error_msg)
                 return
         
-        # Mapear qualidade para formato yt-dlp
+        # Mapear qualidade para formato yt-dlp com codecs específicos
         format_map = {
-            "360p": "bestvideo[height<=360]+bestaudio/best[height<=360]",
-            "480p": "bestvideo[height<=480]+bestaudio/best[height<=480]",
-            "720p": "bestvideo[height<=720]+bestaudio/best[height<=720]",
-            "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
+            "360p": "bestvideo[height<=360][vcodec^=avc]+bestaudio[acodec^=mp4a]/best[height<=360][ext=mp4]",
+            "480p": "bestvideo[height<=480][vcodec^=avc]+bestaudio[acodec^=mp4a]/best[height<=480][ext=mp4]",
+            "720p": "bestvideo[height<=720][vcodec^=avc]+bestaudio[acodec^=mp4a]/best[height<=720][ext=mp4]",
+            "1080p": "bestvideo[height<=1080][vcodec^=avc]+bestaudio[acodec^=mp4a]/best[height<=1080][ext=mp4]"
         }
         
-        format_string = format_map.get(quality, "best")
+        format_string = format_map.get(quality, "bestvideo[vcodec^=avc]+bestaudio[acodec^=mp4a]/best[ext=mp4]")
         
         ydl_opts = {
             'format': format_string,
@@ -218,7 +229,12 @@ class GerenciadorDownload(QObject):
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0',
                 'Accept-Language': 'pt-BR,pt;q=0.9'
-            }
+            },
+            # Forçar remuxagem para garantir compatibilidade
+            'postprocessors': [{
+                'key': 'FFmpegVideoRemuxer',
+                'preferedformat': format.lower(),
+            }]
         }
         
         # Configurar FFmpeg se disponível

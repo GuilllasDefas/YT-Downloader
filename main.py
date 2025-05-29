@@ -1,7 +1,6 @@
-import sys
 import traceback
 from PyQt5.QtWidgets import QApplication
-from GUI import JanelaDownloaderYouTube
+from src.ui.main_window import JanelaDownloaderYouTube
 from tkinter import messagebox
 
 def principal():

@@ -6,7 +6,8 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('logo.ico', '.'), 
+        ('src/resources/styles/*.qss', 'resources/styles'),
+        ('src/resources/logo.ico', '.'), 
         ('config.json', '.'), 
         ('logs', 'logs'),
     ],
@@ -18,7 +19,12 @@ a = Analysis(
         'PyQt5', 
         'PyQt5-Qt5', 
         'PyQt5_sip',
-        'ffmpeg'
+        'ffmpeg',
+        'PyQt5.sip',
+        'src',
+        'src.ui',
+        'src.core',
+        'src.utils',
     ],
     hookspath=[],
     hooksconfig={},

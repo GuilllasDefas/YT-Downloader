@@ -3,8 +3,10 @@ import webbrowser
 from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QTextEdit
 from PyQt5.QtCore import Qt
 from packaging import version
-from config import get_app_version, get_repo_info
-from utils import logger
+
+
+from src.config.config import get_app_version, get_repo_info
+from src.utils.helpers import logger
 
 class DialogoAtualizacao(QDialog):
     def __init__(self, release_info, parent=None):

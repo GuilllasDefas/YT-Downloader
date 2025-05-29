@@ -1,7 +1,7 @@
 import json
 import os
 from datetime import datetime
-from utils import logger
+from src.utils.helpers import logger
 
 ARQUIVO_HISTORICO = "download_history.json"
 

@@ -1,266 +1,20 @@
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, 
                             QVBoxLayout, QHBoxLayout, QFileDialog, QProgressBar, 
-                            QMessageBox, QComboBox, QTabWidget, QRadioButton, 
-                            QGroupBox, QCheckBox, QAction, QDialog, QGridLayout, 
-                            QTableWidget, QTableWidgetItem, QHeaderView)
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+                            QMessageBox, QComboBox, QTabWidget, QAction)
+from PyQt5.QtCore import Qt
 from PyQt5 import QtGui
 import os
 import subprocess
 import platform
 
-from downloader import GerenciadorDownload
-from config import carregar_config, salvar_config, get_app_version
-from history import obter_downloads_recentes, limpar_historico
-from utils import verificar_dependencias, logger, validar_url_youtube
-from updater import AutoUpdater
+from src.core.downloader import GerenciadorDownload
+from src.config.config import carregar_config, salvar_config, get_app_version
+from src.utils.helpers import verificar_dependencias, logger, validar_url_youtube, get_resource_path
+from src.services.updater import AutoUpdater
+from src.ui.widgets.download_thread import ThreadDownload
+from src.ui.dialogs.config_dialog import DialogoConfiguracoes
+from src.ui.dialogs.history_dialog import DialogoHistorico
 
-class ThreadDownload(QThread):
-    sinal_progresso = pyqtSignal(int, dict)
-    sinal_erro = pyqtSignal(str)
-    sinal_sucesso = pyqtSignal(str, dict)
-    sinal_info = pyqtSignal(dict)
-
-    def __init__(self, gerenciador_download, url, caminho, is_audio=True, quality="320", video_format="mp4", video_quality="720p"):
-        super().__init__()
-        self.gerenciador_download = gerenciador_download
-        self.url = url
-        self.caminho = caminho
-        self.is_audio = is_audio
-        self.audio_quality = quality
-        self.video_format = video_format
-        self.video_quality = video_quality
-        
-        # Conectar sinais do gerenciador
-        self.gerenciador_download.sinal_progresso.connect(self.sinal_progresso)
-        self.gerenciador_download.sinal_erro.connect(self.sinal_erro)
-        self.gerenciador_download.sinal_sucesso.connect(self.sinal_sucesso)
-        self.gerenciador_download.sinal_info.connect(self.sinal_info)
-
-    def run(self):
-        try:
-            if self.is_audio:
-                self.gerenciador_download.baixar_audio(self.url, self.caminho, self.audio_quality)
-            else:
-                self.gerenciador_download.baixar_video(self.url, self.caminho, self.video_format, self.video_quality)
-        except Exception as e:
-            self.sinal_erro.emit(str(e))
-    
-    def cancelar(self):
-        self.gerenciador_download.cancelar_download()
-
-class DialogoConfiguracoes(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.parent = parent
-        self.config = carregar_config()
-        self.setWindowTitle("Configurações")
-        self.setMinimumWidth(400)
-        self.iniciar_ui()
-    
-    def iniciar_ui(self):
-        layout = QVBoxLayout()
-        
-        # Tema
-        grupo_tema = QGroupBox("Tema da Interface")
-        layout_tema = QHBoxLayout()
-        
-        self.tema_escuro = QRadioButton("Escuro")
-        self.tema_claro = QRadioButton("Claro")
-        
-        if self.config["theme"] == "dark":
-            self.tema_escuro.setChecked(True)
-        else:
-            self.tema_claro.setChecked(True)
-        
-        layout_tema.addWidget(self.tema_escuro)
-        layout_tema.addWidget(self.tema_claro)
-        grupo_tema.setLayout(layout_tema)
-        layout.addWidget(grupo_tema)
-        
-        # Qualidade de Áudio
-        grupo_audio = QGroupBox("Qualidade de Áudio")
-        layout_audio = QGridLayout()
-        
-        layout_audio.addWidget(QLabel("Qualidade MP3:"), 0, 0)
-        self.qualidade_audio = QComboBox()
-        self.qualidade_audio.addItems(["128 kbps", "192 kbps", "320 kbps"])
-        
-        # Definir qualidade padrão
-        mapa_qualidade = {"128": 0, "192": 1, "320": 2}
-        self.qualidade_audio.setCurrentIndex(mapa_qualidade.get(self.config["audio_quality"], 2))
-        
-        layout_audio.addWidget(self.qualidade_audio, 0, 1)
-        grupo_audio.setLayout(layout_audio)
-        layout.addWidget(grupo_audio)
-        
-        # Opções de Vídeo
-        grupo_video = QGroupBox("Opções de Vídeo")
-        layout_video = QGridLayout()
-        
-        layout_video.addWidget(QLabel("Formato:"), 0, 0)
-        self.formato_video = QComboBox()
-        self.formato_video.addItems(["MP4", "MKV"])
-        
-        indice_formato = 0 if self.config["video_format"].lower() == "mp4" else 1
-        self.formato_video.setCurrentIndex(indice_formato)
-        
-        layout_video.addWidget(self.formato_video, 0, 1)
-        
-        layout_video.addWidget(QLabel("Qualidade Padrão:"), 1, 0)
-        self.qualidade_video = QComboBox()
-        self.qualidade_video.addItems(["360p", "480p", "720p", "1080p"])
-        
-        indice_qualidade = {"360p": 0, "480p": 1, "720p": 2, "1080p": 3}
-        self.qualidade_video.setCurrentIndex(indice_qualidade.get(self.config["video_quality"], 2))
-        
-        layout_video.addWidget(self.qualidade_video, 1, 1)
-        grupo_video.setLayout(layout_video)
-        layout.addWidget(grupo_video)
-        
-        # Metadados
-        grupo_metadados = QGroupBox("Metadados")
-        layout_metadados = QVBoxLayout()
-        
-        self.aplicar_metadados = QCheckBox("Aplicar metadados automaticamente")
-        self.aplicar_metadados.setChecked(self.config.get("apply_metadata", True))
-        
-        self.salvar_thumbnails = QCheckBox("Salvar thumbnails como capas de álbum")
-        self.salvar_thumbnails.setChecked(self.config.get("save_thumbnails", True))
-        
-        layout_metadados.addWidget(self.aplicar_metadados)
-        layout_metadados.addWidget(self.salvar_thumbnails)
-        grupo_metadados.setLayout(layout_metadados)
-        layout.addWidget(grupo_metadados)
-        
-        # Botões
-        layout_botoes = QHBoxLayout()
-        
-        self.botao_salvar = QPushButton("Salvar")
-        self.botao_salvar.clicked.connect(self.salvar_configuracoes)
-        
-        self.botao_cancelar = QPushButton("Cancelar")
-        self.botao_cancelar.clicked.connect(self.reject)
-        
-        layout_botoes.addWidget(self.botao_cancelar)
-        layout_botoes.addWidget(self.botao_salvar)
-        
-        layout.addLayout(layout_botoes)
-        self.setLayout(layout)
-    
-    def salvar_configuracoes(self):
-        # Tema
-        novo_tema = "dark" if self.tema_escuro.isChecked() else "light"
-        
-        # Qualidade de áudio
-        mapa_qualidade = {0: "128", 1: "192", 2: "320"}
-        nova_qualidade_audio = mapa_qualidade[self.qualidade_audio.currentIndex()]
-        
-        # Formato de vídeo
-        novo_formato_video = "mp4" if self.formato_video.currentIndex() == 0 else "mkv"
-        
-        # Qualidade de vídeo
-        mapa_qualidade = {0: "360p", 1: "480p", 2: "720p", 3: "1080p"}
-        nova_qualidade_video = mapa_qualidade[self.qualidade_video.currentIndex()]
-        
-        # Atualizar configurações
-        self.config["theme"] = novo_tema
-        self.config["audio_quality"] = nova_qualidade_audio
-        self.config["video_format"] = novo_formato_video
-        self.config["video_quality"] = nova_qualidade_video
-        self.config["apply_metadata"] = self.aplicar_metadados.isChecked()
-        self.config["save_thumbnails"] = self.salvar_thumbnails.isChecked()
-        
-        # Salvar
-        salvar_config(self.config)
-        
-        # Aplicar tema
-        if self.parent:
-            self.parent.aplicar_tema(novo_tema)
-        
-        self.accept()
-
-class DialogoHistorico(QDialog):
-    url_selecionada = pyqtSignal(str)
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Histórico de Downloads")
-        self.setMinimumSize(600, 400)
-        self.iniciar_ui()
-    
-    def iniciar_ui(self):
-        layout = QVBoxLayout()
-        
-        # Tabela de histórico
-        self.tabela_historico = QTableWidget()
-        self.tabela_historico.setColumnCount(4)
-        self.tabela_historico.setHorizontalHeaderLabels(["Título", "Formato", "Data", "Caminho"])
-        self.tabela_historico.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.tabela_historico.setSelectionBehavior(QTableWidget.SelectRows)
-        self.tabela_historico.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.tabela_historico.doubleClicked.connect(self.ao_clicar_item_duplo)
-        
-        layout.addWidget(self.tabela_historico)
-        
-        # Botões
-        layout_botoes = QHBoxLayout()
-        
-        self.botao_limpar = QPushButton("Limpar Histórico")
-        self.botao_limpar.clicked.connect(self.limpar_historico)
-        
-        self.botao_usar_url = QPushButton("Usar URL Selecionada")
-        self.botao_usar_url.clicked.connect(self.usar_url_selecionada)
-        
-        self.botao_fechar = QPushButton("Fechar")
-        self.botao_fechar.clicked.connect(self.reject)
-        
-        layout_botoes.addWidget(self.botao_limpar)
-        layout_botoes.addWidget(self.botao_usar_url)
-        layout_botoes.addWidget(self.botao_fechar)
-        
-        layout.addLayout(layout_botoes)
-        self.setLayout(layout)
-        
-        # Carregar histórico
-        self.carregar_historico()
-    
-    def carregar_historico(self):
-        downloads = obter_downloads_recentes(100)
-        self.tabela_historico.setRowCount(len(downloads))
-        
-        for i, download in enumerate(downloads):
-            self.tabela_historico.setItem(i, 0, QTableWidgetItem(download['title']))
-            self.tabela_historico.setItem(i, 1, QTableWidgetItem(download['format']))
-            self.tabela_historico.setItem(i, 2, QTableWidgetItem(download['date']))
-            self.tabela_historico.setItem(i, 3, QTableWidgetItem(download['path']))
-            
-            # Armazenar URL como dados de item
-            self.tabela_historico.item(i, 0).setData(Qt.UserRole, download['url'])
-    
-    def ao_clicar_item_duplo(self, index):
-        row = index.row()
-        url = self.tabela_historico.item(row, 0).data(Qt.UserRole)
-        self.url_selecionada.emit(url)
-        self.accept()
-    
-    def usar_url_selecionada(self):
-        linhas_selecionadas = self.tabela_historico.selectionModel().selectedRows()
-        if linhas_selecionadas:
-            row = linhas_selecionadas[0].row()
-            url = self.tabela_historico.item(row, 0).data(Qt.UserRole)
-            self.url_selecionada.emit(url)
-            self.accept()
-    
-    def limpar_historico(self):
-        resposta = QMessageBox.question(self, 'Confirmação', 
-                                     "Tem certeza que deseja limpar todo o histórico?",
-                                     QMessageBox.Yes | QMessageBox.No, 
-                                     QMessageBox.No)
-        
-        if resposta == QMessageBox.Yes:
-            limpar_historico()
-            self.tabela_historico.setRowCount(0)
 
 class JanelaDownloaderYouTube(QMainWindow):
     def __init__(self):
@@ -296,216 +50,53 @@ class JanelaDownloaderYouTube(QMainWindow):
         self.criar_widgets()
     
     def carregar_icone_aplicacao(self):
-        """Tenta carregar o ícone do aplicativo de vários locais possíveis."""
-        # Lista de possíveis nomes de arquivo de ícone
-        nomes_icone = ['logo.ico', 'Youtube.ico', 'youtube.ico', 'icon.ico']
+        """Carrega o ícone do aplicativo independente do ambiente de execução."""
+        # Possíveis nomes de arquivo de ícone
+        nome_icone = 'logo.ico'
         
-        # Lista de possíveis diretórios onde o ícone pode estar
-        diretorios_possiveis = [
-            os.path.dirname(os.path.abspath(__file__)),  # Diretório atual
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),  # Diretório pai
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources'),  # Pasta de recursos
-            os.path.join(os.getenv('APPDATA', ''), 'YouTubeDownloader')  # AppData para Windows
-        ]
+        # Tentar na raiz
+        caminho_icone = get_resource_path(nome_icone)
+        if os.path.exists(caminho_icone):
+            logger.info(f"Ícone encontrado: {caminho_icone}")
+            self.setWindowIcon(QtGui.QIcon(caminho_icone))
+            return
+            
+        # Tentar na pasta resources
+        caminho_icone = get_resource_path(f"resources/{nome_icone}")
+        if os.path.exists(caminho_icone):
+            logger.info(f"Ícone encontrado: {caminho_icone}")
+            self.setWindowIcon(QtGui.QIcon(caminho_icone))
+            return
         
-        # Tentar cada combinação
-        for dir_path in diretorios_possiveis:
-            for nome_icone in nomes_icone:
-                caminho_icone = os.path.join(dir_path, nome_icone)
-                if os.path.exists(caminho_icone):
-                    logger.info(f"Ícone encontrado: {caminho_icone}")
-                    self.setWindowIcon(QtGui.QIcon(caminho_icone))
-                    return
-        
-        # Caso o ícone não seja encontrado, usar um ícone padrão ou nenhum
+        # Se ainda não encontrou, procurar em locais específicos do sistema
+        if os.path.exists("logo.ico"):
+            self.setWindowIcon(QtGui.QIcon("logo.ico"))
+            return
+            
+        # Caso o ícone não seja encontrado
         logger.warning("Nenhum ícone encontrado para o aplicativo")
     
     def aplicar_tema(self, tema):
-        if tema == "dark":
-            self.setStyleSheet("""
-                QMainWindow, QDialog, QTabWidget, QWidget {
-                    background-color: #23272A;
-                    color: #f1f1f1;
-                }
-                QLabel {
-                    color: #e0e0e0;
-                }
-                QLineEdit, QComboBox, QListWidget, QTableWidget {
-                    background-color: #2C2F33;
-                    color: #f1f1f1;
-                    border: 1px solid #444;
-                    border-radius: 4px;
-                    padding: 4px;
-                }
-                QPushButton {
-                    background-color: #8E0000;
-                    color: #fff;
-                    border-radius: 4px;
-                    padding: 6px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #c00;
-                }
-                QPushButton:disabled {
-                    background-color: #555;
-                    color: #888;
-                }
-                QProgressBar {
-                    border: 1px solid #444;
-                    border-radius: 5px;
-                    text-align: center;
-                    background: #2C2F33;
-                    color: #f1f1f1;
-                }
-                QProgressBar::chunk {
-                    background-color: #FF0D0D;
-                }
-                QGroupBox {
-                    border: 1px solid #444;
-                    margin-top: 12px;
-                    font-weight: bold;
-                }
-                QGroupBox::title {
-                    subcontrol-origin: margin;
-                    left: 10px;
-                    padding: 0 5px 0 5px;
-                }
-                QRadioButton, QCheckBox {
-                    color: #e0e0e0;
-                }
-                QMenuBar {
-                    background-color: #2C2F33;
-                    color: #f1f1f1;
-                }
-                QMenuBar::item:selected {
-                    background: #c00;
-                }
-                QMenu {
-                    background-color: #2C2F33;
-                    color: #f1f1f1;
-                }
-                QMenu::item:selected {
-                    background: #c00;
-                }
-                QTabWidget::pane {
-                    border: 1px solid #444;
-                }
-                QTabBar::tab {
-                    background: #2C2F33;
-                    color: #f1f1f1;
-                    padding: 8px 12px;
-                    border: 1px solid #444;
-                    border-bottom: none;
-                    border-top-left-radius: 4px;
-                    border-top-right-radius: 4px;
-                }
-                QTabBar::tab:selected {
-                    background: #c00;
-                }
-                QHeaderView::section {
-                    background-color: #2C2F33;
-                    color: #f1f1f1;
-                    padding: 4px;
-                    border: 1px solid #444;
-                }
-            """)
-        else:
-            self.setStyleSheet("""
-                QMainWindow, QDialog, QTabWidget, QWidget {
-                    background-color: #f5f5f5;
-                    color: #333;
-                }
-                QLabel {
-                    color: #333;
-                }
-                QLineEdit, QComboBox, QListWidget, QTableWidget {
-                    background-color: #fff;
-                    color: #333;
-                    border: 1px solid #ccc;
-                    border-radius: 4px;
-                    padding: 4px;
-                }
-                QPushButton {
-                    background-color: #4a86e8;
-                    color: #fff;
-                    border-radius: 4px;
-                    padding: 6px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #3a76d8;
-                }
-                QPushButton:disabled {
-                    background-color: #ccc;
-                    color: #666;
-                }
-                QProgressBar {
-                    border: 1px solid #ccc;
-                    border-radius: 5px;
-                    text-align: center;
-                    background: #fff;
-                    color: #333;
-                }
-                QProgressBar::chunk {
-                    background-color: #4a86e8;
-                }
-                QGroupBox {
-                    border: 1px solid #ccc;
-                    margin-top: 12px;
-                    font-weight: bold;
-                }
-                QGroupBox::title {
-                    subcontrol-origin: margin;
-                    left: 10px;
-                    padding: 0 5px 0 5px;
-                }
-                QRadioButton, QCheckBox {
-                    color: #333;
-                }
-                QMenuBar {
-                    background-color: #f5f5f5;
-                    color: #333;
-                }
-                QMenuBar::item:selected {
-                    background: #4a86e8;
-                    color: #fff;
-                }
-                QMenu {
-                    background-color: #f5f5f5;
-                    color: #333;
-                }
-                QMenu::item:selected {
-                    background: #4a86e8;
-                    color: #fff;
-                }
-                QTabWidget::pane {
-                    border: 1px solid #ccc;
-                }
-                QTabBar::tab {
-                    background: #e8e8e8;
-                    color: #333;
-                    padding: 8px 12px;
-                    border: 1px solid #ccc;
-                    border-bottom: none;
-                    border-top-left-radius: 4px;
-                    border-top-right-radius: 4px;
-                }
-                QTabBar::tab:selected {
-                    background: #4a86e8;
-                    color: #fff;
-                }
-                QHeaderView::section {
-                    background-color: #e8e8e8;
-                    color: #333;
-                    padding: 4px;
-                    border: 1px solid #ccc;
-                }
-            """)
+        try:
+            tema_arquivo = "dark.qss" if tema == "dark" else "light.qss"
+            caminho_estilo = get_resource_path(f"resources/styles/{tema_arquivo}")
+            
+            # Verificar se o arquivo existe
+            if not os.path.exists(caminho_estilo):
+                logger.error(f"Arquivo de estilo não encontrado: {caminho_estilo}")
+                return
+                
+            # Carregar o estilo do arquivo
+            with open(caminho_estilo, "r", encoding="utf-8") as f:
+                estilo = f.read()
+                self.setStyleSheet(estilo)
+            
+            # Salvar preferência
+            self.dados_config["theme"] = tema
+            salvar_config(self.dados_config)
         
-        # Salvar preferência
-        self.dados_config["theme"] = tema
-        salvar_config(self.dados_config)
+        except Exception as e:
+            logger.error(f"Erro ao aplicar tema: {str(e)}")
     
     def criar_menu(self):
         menubar = self.menuBar()

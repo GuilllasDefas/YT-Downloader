@@ -4,7 +4,7 @@ from mutagen.id3 import ID3, APIC, TIT2, TPE1, TALB
 from mutagen.mp3 import MP3
 from PIL import Image
 import io
-from utils import logger
+from src.utils.helpers import logger
 
 def baixar_thumbnail(thumbnail_url):
     """Baixa a thumbnail do vídeo."""
