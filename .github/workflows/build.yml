@@ -164,7 +164,7 @@ jobs:
           LicenseFile=
           OutputDir=setup-output
           OutputBaseFilename=YouTube-Downloader-Setup-${{ steps.get_version.outputs.VERSION }}
-          SetupIconFile=logo.ico
+          SetupIconFile="resources/logo.ico"
           Compression=lzma
           SolidCompression=yes
           WizardStyle=modern
@@ -182,7 +182,7 @@ jobs:
           
           [Files]
           Source: "dist\YouTube Downloader\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-          Source: "logo.ico"; DestDir: "{app}"; Flags: ignoreversion
+          Source: "resources\logo.ico"; DestDir: "{app}"; Flags: ignoreversion
           
           [Icons]
           Name: "{group}\YouTube Downloader"; Filename: "{app}\YouTube Downloader.exe"; IconFilename: "{app}\logo.ico"; WorkingDir: "{app}"
