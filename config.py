@@ -14,6 +14,14 @@ CONFIG_PADRAO = {
     "save_thumbnails": True
 }
 
+APP_VERSION = "1.0.1"
+
+# Informações do repositório para o updater
+REPO_INFO = {
+    "owner": "GuilllasDefas",  # Substitua pelo seu usuário do GitHub
+    "name": "YT-Downloader"  # Substitua pelo nome do seu repositório
+}
+
 def carregar_config():
     """Carrega configurações do arquivo ou retorna padrões."""
     try:
@@ -56,3 +64,11 @@ def atualizar_valor_config(key, value):
 def redefinir_para_padrao():
     """Redefine configurações para os valores padrão."""
     return salvar_config(CONFIG_PADRAO.copy())
+
+def get_app_version():
+    """Retorna a versão atual do aplicativo."""
+    return APP_VERSION
+
+def get_repo_info():
+    """Retorna informações do repositório para o updater."""
+    return REPO_INFO.copy()

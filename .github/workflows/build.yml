@@ -1,0 +1,174 @@
+name: Build e Release YouTube Downloader
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      # 1) Puxa o código
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # 2) Seta Python
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      # 3) Extrai versão do arquivo Python
+      - name: Extract Version from Python Config
+        id: get_version
+        run: |
+          $version = python -c "from config import get_app_version; print(f'v{get_app_version()}')"
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "Versão extraída: $version"
+
+      # 4) Instala dependências e PyInstaller
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      # 5) Gera o .exe usando o arquivo .spec
+      - name: Build EXE com arquivo .spec
+        run: pyinstaller "youtube_downloader.spec"
+
+      # 6) Instala Inno Setup
+      - name: Install Inno Setup
+        run: |
+          $url = "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe"
+          Invoke-WebRequest -Uri $url -OutFile "innosetup-installer.exe"
+          Start-Process -FilePath "innosetup-installer.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
+
+      # 7) Cria script do Inno Setup
+      - name: Create Inno Setup Script
+        run: |
+          $version = "${{ steps.get_version.outputs.VERSION }}".TrimStart('v')
+          $script = @"
+          [Setup]
+          AppName=YouTube Downloader
+          AppVersion=$version
+          AppPublisher=Guilherme de Freitas Moreira
+          AppPublisherURL=https://github.com/GuilllasDefas/YT-Downloader
+          AppSupportURL=https://github.com/GuilllasDefas/YT-Downloader/issues
+          AppUpdatesURL=https://github.com/GuilllasDefas/YT-Downloader/releases
+          DefaultDirName={autopf}\YouTube Downloader
+          DefaultGroupName=YouTube Downloader
+          AllowNoIcons=yes
+          LicenseFile=
+          OutputDir=setup-output
+          OutputBaseFilename=YouTube-Downloader-Setup-${{ steps.get_version.outputs.VERSION }}
+          SetupIconFile=logo.ico
+          Compression=lzma
+          SolidCompression=yes
+          WizardStyle=modern
+          ArchitecturesInstallIn64BitMode=x64
+          ChangesAssociations=yes
+          RestartIfNeededByRun=no
+          
+          [Languages]
+          Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
+          
+          [Tasks]
+          Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+          Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1
+          
+          [Files]
+          Source: "dist\YouTube Downloader\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+          Source: "logo.ico"; DestDir: "{app}"; Flags: ignoreversion
+          
+          [Icons]
+          Name: "{group}\YouTube Downloader"; Filename: "{app}\YouTube Downloader.exe"; IconFilename: "{app}\logo.ico"; WorkingDir: "{app}"
+          Name: "{group}\{cm:UninstallProgram,YouTube Downloader}"; Filename: "{uninstallexe}"
+          Name: "{autodesktop}\YouTube Downloader"; Filename: "{app}\YouTube Downloader.exe"; Tasks: desktopicon; IconFilename: "{app}\logo.ico"; WorkingDir: "{app}"
+          Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\YouTube Downloader"; Filename: "{app}\YouTube Downloader.exe"; Tasks: quicklaunchicon; IconFilename: "{app}\logo.ico"; WorkingDir: "{app}"
+          
+          [Registry]
+          Root: HKLM; Subkey: "SOFTWARE\Classes\Applications\YouTube Downloader.exe"; ValueType: string; ValueName: ""; ValueData: "YouTube Downloader"; Flags: uninsdeletekey
+          Root: HKLM; Subkey: "SOFTWARE\Classes\Applications\YouTube Downloader.exe\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\logo.ico,0"; Flags: uninsdeletekey
+          Root: HKLM; Subkey: "SOFTWARE\Classes\Applications\YouTube Downloader.exe\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\YouTube Downloader.exe"" ""%1"""; Flags: uninsdeletekey
+          
+          [Run]
+          Filename: "{app}\YouTube Downloader.exe"; Description: "{cm:LaunchProgram,YouTube Downloader}"; Flags: nowait postinstall skipifsilent
+          Filename: "ie4uinit.exe"; Parameters: "-show"; Flags: runhidden waituntilterminated; StatusMsg: "Atualizando cache de ícones..."
+          
+          [UninstallDelete]
+          Type: filesandordirs; Name: "{app}"
+          
+          [UninstallRun]
+          Filename: "ie4uinit.exe"; Parameters: "-show"; Flags: runhidden waituntilterminated
+          "@
+          
+          $script | Out-File -FilePath "setup.iss" -Encoding UTF8
+
+      # 8) Gera o setup.exe
+      - name: Build Setup with Inno Setup
+        run: |
+          $innoPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $innoPath)) {
+            $innoPath = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+          }
+          & $innoPath "setup.iss"
+
+      # 9) Empacota num ZIP
+      - name: Zip App
+        run: Compress-Archive -Path "dist\YouTube Downloader\*" -DestinationPath "YouTube-Downloader.zip"
+        
+      # 10) Cria uma tag automática
+      - name: Criar tag automática
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag -a ${{ steps.get_version.outputs.VERSION }} -m "Release automática ${{ steps.get_version.outputs.VERSION }}"
+          git push origin ${{ steps.get_version.outputs.VERSION }}
+
+      # 11) Cria a Release
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          release_name: YouTube Downloader ${{ steps.get_version.outputs.VERSION }}
+          body: |           
+            ## YouTube Downloader ${{ steps.get_version.outputs.VERSION }}
+
+            ### Melhorias
+
+            - Verificação de Atualizações
+
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 12) Anexa o ZIP à Release
+      - name: Upload ZIP Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: YouTube-Downloader.zip
+          asset_name: YouTube-Downloader-${{ steps.get_version.outputs.VERSION }}.zip
+          asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 13) Anexa o Setup à Release
+      - name: Upload Setup Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: setup-output/YouTube-Downloader-Setup-${{ steps.get_version.outputs.VERSION }}.exe
+          asset_name: YouTube-Downloader-Setup-${{ steps.get_version.outputs.VERSION }}.exe
+          asset_content_type: application/octet-stream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

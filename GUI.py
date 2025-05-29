@@ -1,20 +1,18 @@
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, 
                             QVBoxLayout, QHBoxLayout, QFileDialog, QProgressBar, 
                             QMessageBox, QComboBox, QTabWidget, QRadioButton, 
-                            QGroupBox, QCheckBox, QListWidget, QMenuBar, QMenu, 
-                            QAction, QDialog, QGridLayout, QTableWidget, 
-                            QTableWidgetItem, QHeaderView)
+                            QGroupBox, QCheckBox, QAction, QDialog, QGridLayout, 
+                            QTableWidget, QTableWidgetItem, QHeaderView)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5 import QtGui
 import os
-import sys
-from functools import partial
 
 from downloader import GerenciadorDownload
-from config import carregar_config, salvar_config, atualizar_valor_config
+from config import carregar_config, salvar_config, atualizar_valor_config, get_app_version
 from history import obter_downloads_recentes, limpar_historico
 from utils import verificar_dependencias, logger, validar_url_youtube
 from metadata import extrair_artista_do_titulo
+from updater import AutoUpdater
 
 class ThreadDownload(QThread):
     sinal_progresso = pyqtSignal(int, dict)
@@ -284,9 +282,13 @@ class JanelaDownloaderYouTube(QMainWindow):
         
         # Configurar interface - com busca robusta de ícone
         self.carregar_icone_aplicacao()
-        self.setWindowTitle("YouTube Downloader")
+        version = get_app_version()
+        self.setWindowTitle(f"YouTube Downloader v{version}")
         self.aplicar_tema(self.dados_config.get("theme", "dark"))
         self.resize(600, 300)
+        
+        # Inicializar updater
+        self.updater = AutoUpdater()
         
         # Criar menu e widgets
         self.criar_menu()
@@ -529,6 +531,12 @@ class JanelaDownloaderYouTube(QMainWindow):
         
         # Menu Ajuda
         menu_ajuda = menubar.addMenu('Ajuda')
+        
+        acao_verificar_atualizacao = QAction('Verificar Atualização', self)
+        acao_verificar_atualizacao.triggered.connect(self.verificar_atualizacao_manual)
+        menu_ajuda.addAction(acao_verificar_atualizacao)
+        
+        menu_ajuda.addSeparator()
         
         acao_sobre = QAction('Sobre', self)
         acao_sobre.triggered.connect(self.mostrar_sobre)
@@ -860,10 +868,11 @@ class JanelaDownloaderYouTube(QMainWindow):
             self.entrada_url_video.setText(url)
     
     def mostrar_sobre(self):
+        version = get_app_version()
         QMessageBox.about(
             self, 
             "Sobre YouTube Downloader",
-            "YouTube Downloader v3.0\n\n"
+            f"YouTube Downloader v{version}\n\n"
             "Uma aplicação para download de áudios e vídeos do YouTube.\n\n"
             "Desenvolvido com PyQt5, mutagen e yt-dlp.\n\n"
             "Por Guilherme de Freitas Moreira"
@@ -884,3 +893,23 @@ class JanelaDownloaderYouTube(QMainWindow):
                 "Verificação Concluída",
                 "Todas as dependências necessárias estão instaladas corretamente."
             )
+    
+    def verificar_atualizacao_manual(self):
+        """Verifica atualização manualmente (acionado pelo menu)."""
+        self.updater.verificar_e_notificar(parent=self, silencioso=False)
+    
+    def verificar_atualizacao_automatica(self):
+        """Verifica atualização automaticamente (silencioso)."""
+        try:
+            self.updater.verificar_e_notificar(parent=self, silencioso=True)
+        except Exception as e:
+            logger.error(f"Erro na verificação automática de atualização: {e}")
+    
+    def showEvent(self, event):
+        """Evento chamado quando a janela é exibida."""
+        super().showEvent(event)
+        
+        # Verificar atualização automaticamente quando a janela abre
+        # Fazer isso em um timer para não bloquear a interface
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(2000, self.verificar_atualizacao_automatica)  # 2 segundos após abrir

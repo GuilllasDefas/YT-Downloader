@@ -1,7 +1,7 @@
 {
   "default_path": "C:/Users/Guilherme/Videos",
   "audio_quality": "320",
-  "theme": "light",
+  "theme": "dark",
   "video_format": "mp4",
   "video_quality": "360p",
   "apply_metadata": true,

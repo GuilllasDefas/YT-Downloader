@@ -1,6 +1,5 @@
 # YouTube Downloader
 
-
 ## Descrição
 
 YouTube Downloader é uma aplicação desktop desenvolvida em Python que permite baixar vídeos e áudios do YouTube de forma simples e este aplicativo suporta diferentes formatos e qualidades de download.
@@ -29,12 +28,7 @@ YouTube Downloader é uma aplicação desktop desenvolvida em Python que permite
 ## Instalação
 
 1. Clone ou baixe este repositório
-2. Instale as dependências:
-
-```bash
-pip install -r requirements.txt
-```
-
+2. Instale as dependências: pip install -r requirements.txt
 3. Certifique-se de ter o FFmpeg instalado no seu sistema:
    - **Windows**: Baixe em [ffmpeg.org](https://ffmpeg.org/download.html), vá em variáveis de ambiente e adicione ao PATH
    - **Linux**: `sudo apt install ffmpeg` (Ubuntu/Debian) ou `sudo dnf install ffmpeg` (Fedora)
@@ -43,11 +37,6 @@ pip install -r requirements.txt
 ## Como usar
 
 1. Execute o aplicativo:
-
-```bash
-python main.py
-```
-
 2. Cole a URL do vídeo do YouTube que deseja baixar
 3. Escolha o diretório de destino
 4. Selecione o formato e qualidade desejados
