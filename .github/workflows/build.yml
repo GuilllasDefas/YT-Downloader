@@ -3,7 +3,7 @@ name: Build e Release YouTube Downloader
 on:
   push:
     branches:
-      - develop
+      - master
 
 permissions:
   contents: write
