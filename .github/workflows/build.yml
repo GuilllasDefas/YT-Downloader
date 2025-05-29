@@ -239,10 +239,11 @@ jobs:
           body: |           
             ## Melhoria
 
-            - Prioriza codecs mais universais no download de vídeo
+            - Prioriza Codecs mais universais no download de vídeo
+            - Adicionada compressão UPX para diminuir o tamanho da aplicação
 
           draft: false
-          prerelease: true
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
