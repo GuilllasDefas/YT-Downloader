@@ -181,11 +181,9 @@ jobs:
           tag_name: ${{ steps.get_version.outputs.VERSION }}
           release_name: YouTube Downloader ${{ steps.get_version.outputs.VERSION }}
           body: |           
-            ## YouTube Downloader ${{ steps.get_version.outputs.VERSION }}
+            ## Melhoria
 
-            ### Correção
-
-            - Adicionar ffmpeg para corrigir problemas de codec
+            - Adicionado botão para abrir pasta selecionada
 
           draft: false
           prerelease: false

@@ -6,12 +6,13 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QLabel, QLineEdit, QPushButto
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5 import QtGui
 import os
+import subprocess
+import platform
 
 from downloader import GerenciadorDownload
-from config import carregar_config, salvar_config, atualizar_valor_config, get_app_version
+from config import carregar_config, salvar_config, get_app_version
 from history import obter_downloads_recentes, limpar_historico
 from utils import verificar_dependencias, logger, validar_url_youtube
-from metadata import extrair_artista_do_titulo
 from updater import AutoUpdater
 
 class ThreadDownload(QThread):
@@ -546,6 +547,23 @@ class JanelaDownloaderYouTube(QMainWindow):
         acao_verificar_dependencias.triggered.connect(self.verificar_dependencias)
         menu_ajuda.addAction(acao_verificar_dependencias)
     
+    def abrir_pasta(self, caminho):
+        """Abre a pasta no explorador de arquivos do sistema."""
+        if not os.path.exists(caminho):
+            QMessageBox.warning(self, "Pasta não encontrada", f"A pasta não existe:\n{caminho}")
+            return
+        
+        try:
+            sistema = platform.system()
+            if sistema == "Windows":
+                os.startfile(caminho)
+            elif sistema == "Darwin":  # macOS
+                subprocess.run(["open", caminho])
+            else:  # Linux
+                subprocess.run(["xdg-open", caminho])
+        except Exception as e:
+            QMessageBox.warning(self, "Erro", f"Não foi possível abrir a pasta:\n{str(e)}")
+    
     def criar_widgets(self):
         widget_central = QWidget()
         layout_principal = QVBoxLayout(widget_central)
@@ -584,6 +602,10 @@ class JanelaDownloaderYouTube(QMainWindow):
         self.botao_pasta = QPushButton("Escolher")
         self.botao_pasta.clicked.connect(self.escolher_pasta)
         layout_destino.addWidget(self.botao_pasta)
+        
+        self.botao_abrir_pasta = QPushButton("Abrir Pasta")
+        self.botao_abrir_pasta.clicked.connect(lambda: self.abrir_pasta(self.entrada_arquivo.text()))
+        layout_destino.addWidget(self.botao_abrir_pasta)
         
         layout_audio.addLayout(layout_destino)
         
@@ -647,6 +669,10 @@ class JanelaDownloaderYouTube(QMainWindow):
         self.botao_pasta_video = QPushButton("Escolher")
         self.botao_pasta_video.clicked.connect(self.escolher_pasta_video)
         layout_destino_video.addWidget(self.botao_pasta_video)
+        
+        self.botao_abrir_pasta_video = QPushButton("Abrir Pasta")
+        self.botao_abrir_pasta_video.clicked.connect(lambda: self.abrir_pasta(self.entrada_arquivo_video.text()))
+        layout_destino_video.addWidget(self.botao_abrir_pasta_video)
         
         layout_video.addLayout(layout_destino_video)
         
