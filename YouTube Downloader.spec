@@ -6,8 +6,8 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('src/resources/styles/*.qss', 'resources/styles'),
-        ('src/resources/logo.ico', '.'), 
+        ('resources/styles/*.qss', 'resources/styles'),
+        ('resources/logo.ico', '.'), 
         ('config.json', '.'), 
         ('logs', 'logs'),
     ],
@@ -51,7 +51,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['logo.ico'],
+    icon=['resources/logo.ico'],
 )
 coll = COLLECT(
     exe,
