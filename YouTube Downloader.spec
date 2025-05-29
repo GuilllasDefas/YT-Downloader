@@ -5,7 +5,11 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('logo.ico', '.'), ('config.json', '.')],
+    datas=[
+        ('logo.ico', '.'), 
+        ('config.json', '.'), 
+        ('logs', 'logs'),
+    ],
     hiddenimports=['yt_dlp', 'mutagen', 'pillow', 'requests', 'PyQt5', 'PyQt5-Qt5', 'PyQt5_sip'],
     hookspath=[],
     hooksconfig={},
