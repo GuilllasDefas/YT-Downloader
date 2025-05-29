@@ -68,7 +68,7 @@ jobs:
       - name: Extract Version from Python Config
         id: get_version
         run: |
-          $version = python -c "from config import get_app_version; print(f'v{get_app_version()}')"
+          $version = python -c "from src.config.config import APP_VERSION; print(f'v{APP_VERSION}')"
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
           echo "Versão extraída: $version"
 
@@ -83,7 +83,7 @@ jobs:
       - name: Install UPX
         run: |
           # Baixar UPX
-          $upxUrl = "https://github.com/upx/upx/releases/download/v4.2.1/upx-4.2.1-win64.zip"
+          $upxUrl = "https://github.com/upx/upx/releases/download/v5.0.1/upx-5.0.1-win64.zip"
           $upxZip = "upx.zip"
           $upxDir = "upx"
           
