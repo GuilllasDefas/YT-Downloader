@@ -1,10 +1,14 @@
 # YouTube Downloader
 
+![Versão](https://img.shields.io/badge/versão-1.0.0-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.7%2B-blue)
+![Licença](https://img.shields.io/badge/licença-MIT-green)
+
 ## Descrição
 
-YouTube Downloader é uma aplicação desktop desenvolvida em Python que permite baixar vídeos e áudios do YouTube de forma simples e este aplicativo suporta diferentes formatos e qualidades de download.
+YouTube Downloader é uma aplicação desktop desenvolvida em Python que permite baixar vídeos e áudios do YouTube de forma simples e rápida. Este aplicativo suporta diferentes formatos e qualidades de download, oferecendo uma experiência completa para gerenciar seus conteúdos do YouTube.
 
-## Funcionalidades
+## 🚀 Funcionalidades
 
 - Download de vídeos do YouTube em MP4 ou MKV
 - Conversão de vídeos para áudio MP3
@@ -15,34 +19,53 @@ YouTube Downloader é uma aplicação desktop desenvolvida em Python que permite
 - Aplicação de metadados em arquivos MP3
 - Configurações personalizáveis
 
-## Requisitos
+## 📋 Requisitos
 
-- Python 3.7+ (Utilizei a versão 3.12.9)
+- Python 3.7+ (Recomendado: 3.12+)
 - FFmpeg (instalado no sistema e acessível pelo PATH)
 - Bibliotecas Python (instaláveis via pip):
   - PyQt5 (5.15.11)
-  - yt_dlp (2025.3.31)
+  - yt_dlp (2025.5.22)
   - mutagen (1.47.0)
-  - Pillow (10.4.0)
+  - Pillow (11.2.1)
+  - requests (2.32.3)
 
-## Instalação
+## 💻 Instalação
 
 1. Clone ou baixe este repositório
-2. Instale as dependências: pip install -r requirements.txt
+
+   ```bash
+   git clone https://github.com/seu-usuario/YT-Downloader.git
+   cd YT-Downloader
+   ```
+
+2. Instale as dependências:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
 3. Certifique-se de ter o FFmpeg instalado no seu sistema:
-   - **Windows**: Baixe em [ffmpeg.org](https://ffmpeg.org/download.html), vá em variáveis de ambiente e adicione ao PATH
+   - **Windows**: Baixe em [ffmpeg.org](https://ffmpeg.org/download.html), adicione ao PATH nas variáveis de ambiente
    - **Linux**: `sudo apt install ffmpeg` (Ubuntu/Debian) ou `sudo dnf install ffmpeg` (Fedora)
    - **macOS**: `brew install ffmpeg` (usando Homebrew)
 
-## Como usar
+## 🎮 Como usar
 
 1. Execute o aplicativo:
+
+   ```bash
+   python main.py
+   ```
+
+   Ou use o executável criado pelo PyInstaller (se disponível)
+
 2. Cole a URL do vídeo do YouTube que deseja baixar
 3. Escolha o diretório de destino
 4. Selecione o formato e qualidade desejados
 5. Clique em "Baixar MP3" ou "Baixar Vídeo"
 
-## Configurações
+## ⚙️ Configurações
 
 O aplicativo permite personalizar diversas configurações:
 
@@ -54,25 +77,56 @@ O aplicativo permite personalizar diversas configurações:
 
 Acesse as configurações através do menu "Configurações > Preferências".
 
-## Estrutura do projeto
+## 📂 Estrutura do projeto
+
+```md
+YT-Downloader/
+├── main.py              # Ponto de entrada da aplicação
+├── src/
+│   ├── ui/              # Componentes da interface
+│   ├── core/            # Lógica principal  
+│   └── utils/           # Funções utilitárias
+├── resources/           # Recursos gráficos e estilos
+├── docs/                # Documentação
+└── logs/                # Arquivos de log
+```
+
+Arquivos principais:
 
 - `main.py` - Ponto de entrada da aplicação
-- `GUI.py` - Interface pra usar mais fácil
-- `downloader.py` - download do YouTube
-- `metadata.py` - Gerenciamento de metadados
-- `config.py` - Gerenciamento de configurações
-- `history.py` - Histórico de downloads
-- `utils.py` - Funções utilitárias
+- `src/ui/GUI.py` - Interface gráfica
+- `src/core/downloader.py` - Gerenciamento de download do YouTube
+- `src/core/metadata.py` - Gerenciamento de metadados
+- `src/utils/config.py` - Gerenciamento de configurações
+- `src/utils/history.py` - Histórico de downloads
 
-## Solução de problemas
+## 🔧 Solução de problemas
 
 Se encontrar problemas:
 
-1. Verifique se o FFmpeg está instalado corretamente
-2. Verifique se todas as dependências Python estão instaladas
+1. Verifique se o FFmpeg está instalado corretamente e disponível no PATH
+2. Certifique-se de que todas as dependências Python estão instaladas
 3. Consulte os logs em `logs/youtube_downloader.log`
 4. Use a opção "Ajuda > Verificar Dependências" no aplicativo
+5. Consulte a [documentação detalhada]
 
-## Contribuição
+## 🤝 Contribuição
 
-Contribuições são bem-vindas!
+Contribuições são bem-vindas! Para contribuir:
+
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+Consulte nossa [documentação para contribuidores](docs/CONTRIBUTING.md) para mais detalhes.
+
+## 📄 Licença
+
+Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE.md](LICENSE.md) para detalhes.
+
+## 📸 Screenshots
+
+![Tela Principal](docs/images/main_screen.png)
+![Configurações](docs/images/settings.png)
