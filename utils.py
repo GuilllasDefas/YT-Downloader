@@ -3,23 +3,56 @@ import logging
 import subprocess
 from pathlib import Path
 import urllib.parse
+import os
+import sys
 
 def configurar_logging():
     """Configura o sistema de logging para diagnóstico do aplicativo."""
-    log_dir = Path('logs')
-    log_dir.mkdir(exist_ok=True)
+    # Determinar o diretório base (funciona tanto para script quanto para executável)
+    if getattr(sys, 'frozen', False):
+        # Executável compilado
+        base_dir = Path(sys.executable).parent
+    else:
+        # Script Python
+        base_dir = Path(__file__).parent
     
-    log_file = log_dir / 'youtube_downloader.log'
+    log_dir = base_dir / 'logs'
+    
+    # Tentar criar o diretório de logs com tratamento de erro
+    try:
+        log_dir.mkdir(exist_ok=True, parents=True)
+        log_file = log_dir / 'youtube_downloader.log'
+        file_handler = logging.FileHandler(log_file)
+    except (OSError, PermissionError) as e:
+        # Fallback: usar diretório temporário do usuário
+        import tempfile
+        temp_dir = Path(tempfile.gettempdir()) / 'youtube_downloader_logs'
+        try:
+            temp_dir.mkdir(exist_ok=True, parents=True)
+            log_file = temp_dir / 'youtube_downloader.log'
+            file_handler = logging.FileHandler(log_file)
+        except (OSError, PermissionError):
+            # Último recurso: apenas console
+            file_handler = None
+    
+    # Configurar handlers
+    handlers = [logging.StreamHandler()]
+    if file_handler:
+        handlers.append(file_handler)
     
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(log_file),
-            logging.StreamHandler()
-        ]
+        handlers=handlers
     )
-    return logging.getLogger('youtube_downloader')
+    
+    logger = logging.getLogger('youtube_downloader')
+    if file_handler:
+        logger.info(f"Log sendo salvo em: {log_file}")
+    else:
+        logger.warning("Não foi possível criar arquivo de log. Usando apenas console.")
+    
+    return logger
 
 logger = configurar_logging()
 
