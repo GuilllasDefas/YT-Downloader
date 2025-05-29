@@ -110,18 +110,43 @@ jobs:
           
           Write-Host "UPX instalado e configurado com sucesso!"
 
-      # 7) Gera o .exe usando o arquivo .spec
+      # 7) Prepara arquivos QSS
+      - name: Prepare QSS Files
+        run: |
+          # Criar diretório para os arquivos QSS
+          mkdir -p src/resources/styles
+          
+          # Verificar se os arquivos QSS existem
+          if (Test-Path "resources/styles/dark.qss") {
+            Write-Host "Encontrado arquivo dark.qss"
+            Copy-Item "resources/styles/dark.qss" -Destination "src/resources/styles/dark.qss"
+          } else {
+            Write-Host "AVISO: dark.qss não encontrado na pasta resources/styles"
+          }
+          
+          if (Test-Path "resources/styles/light.qss") {
+            Write-Host "Encontrado arquivo light.qss"
+            Copy-Item "resources/styles/light.qss" -Destination "src/resources/styles/light.qss"
+          } else {
+            Write-Host "AVISO: light.qss não encontrado na pasta resources/styles"
+          }
+          
+          # Verificar se os arquivos foram copiados
+          Get-ChildItem -Path src/resources/styles
+          Write-Host "Estrutura de pastas e arquivos preparada"
+
+      # 8) Gera o .exe usando o arquivo .spec
       - name: Build EXE com arquivo .spec
         run: pyinstaller "YouTube Downloader.spec"
 
-      # 8) Instala Inno Setup
+      # 9) Instala Inno Setup
       - name: Install Inno Setup
         run: |
           $url = "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe"
           Invoke-WebRequest -Uri $url -OutFile "innosetup-installer.exe"
           Start-Process -FilePath "innosetup-installer.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
 
-      # 9) Cria script do Inno Setup
+      # 10) Cria script do Inno Setup
       - name: Create Inno Setup Script
         run: |
           $version = "${{ steps.get_version.outputs.VERSION }}".TrimStart('v')
@@ -183,7 +208,7 @@ jobs:
           
           $script | Out-File -FilePath "setup.iss" -Encoding UTF8
 
-      # 10) Gera o setup.exe
+      # 11) Gera o setup.exe
       - name: Build Setup with Inno Setup
         run: |
           $innoPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
@@ -192,11 +217,11 @@ jobs:
           }
           & $innoPath "setup.iss"
 
-      # 11) Empacota num ZIP
+      # 12) Empacota num ZIP
       - name: Zip App
         run: Compress-Archive -Path "dist\YouTube Downloader\*" -DestinationPath "YouTube-Downloader.zip"
         
-      # 12) Cria uma tag automática
+      # 13) Cria uma tag automática
       - name: Criar tag automática
         run: |
           git config --local user.email "action@github.com"
@@ -204,7 +229,7 @@ jobs:
           git tag -a ${{ steps.get_version.outputs.VERSION }} -m "Release automática ${{ steps.get_version.outputs.VERSION }}"
           git push origin ${{ steps.get_version.outputs.VERSION }}
 
-      # 13) Cria a Release
+      # 14) Cria a Release
       - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1
@@ -221,7 +246,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 14) Anexa o ZIP à Release
+      # 15) Anexa o ZIP à Release
       - name: Upload ZIP Asset
         uses: actions/upload-release-asset@v1
         with:
@@ -232,7 +257,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 15) Anexa o Setup à Release
+      # 16) Anexa o Setup à Release
       - name: Upload Setup Asset
         uses: actions/upload-release-asset@v1
         with:
