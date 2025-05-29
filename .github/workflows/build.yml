@@ -141,9 +141,9 @@ jobs:
           body: |           
             ## YouTube Downloader ${{ steps.get_version.outputs.VERSION }}
 
-            ### Melhorias
+            ### Correção
 
-            - Verificação de Atualizações
+            - Adicionar ffmpeg para corrigir problemas de codec
 
           draft: false
           prerelease: false

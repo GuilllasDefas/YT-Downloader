@@ -14,7 +14,7 @@ CONFIG_PADRAO = {
     "save_thumbnails": True
 }
 
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.2"
 
 # Informações do repositório para o updater
 REPO_INFO = {

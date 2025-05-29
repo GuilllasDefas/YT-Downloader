@@ -10,7 +10,16 @@ a = Analysis(
         ('config.json', '.'), 
         ('logs', 'logs'),
     ],
-    hiddenimports=['yt_dlp', 'mutagen', 'pillow', 'requests', 'PyQt5', 'PyQt5-Qt5', 'PyQt5_sip'],
+    hiddenimports=[
+        'yt_dlp', 
+        'mutagen', 
+        'pillow', 
+        'requests', 
+        'PyQt5', 
+        'PyQt5-Qt5', 
+        'PyQt5_sip',
+        'ffmpeg'
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

@@ -1,10 +1,22 @@
 import os
 import re
+import sys
 from yt_dlp import YoutubeDL
 from PyQt5.QtCore import QObject, pyqtSignal
 from utils import logger, validar_url_youtube, sanitizar_nome_arquivo
 from metadata import aplicar_metadados, extrair_artista_do_titulo, baixar_thumbnail
 from history import adicionar_ao_historico
+
+def configurar_ffmpeg():
+    """Configura o FFmpeg para o yt-dlp funcionar em executáveis compilados."""
+    try:
+        import ffmpeg
+        # Verificar se ffmpeg-python está funcionando
+        ffmpeg.probe('NUL' if os.name == 'nt' else '/dev/null')
+        return True
+    except:
+        logger.warning("ffmpeg-python não encontrado. Tentando FFmpeg do sistema...")
+        return False
 
 class GerenciadorDownload(QObject):
     sinal_progresso = pyqtSignal(int, dict)
@@ -28,6 +40,14 @@ class GerenciadorDownload(QObject):
             'quiet': True,
             'no_warnings': True
         }
+        
+        # Configurar FFmpeg se disponível
+        if configurar_ffmpeg():
+            try:
+                import ffmpeg
+                ydl_opts['ffmpeg_location'] = ffmpeg.__file__.replace('__init__.py', 'ffmpeg.exe')
+            except:
+                pass
         
         try:
             with YoutubeDL(ydl_opts) as ydl:
@@ -99,6 +119,24 @@ class GerenciadorDownload(QObject):
                 'Accept-Language': 'pt-BR,pt;q=0.9'
             }
         }
+        
+        # Configurar FFmpeg se disponível
+        if configurar_ffmpeg():
+            try:
+                import ffmpeg
+                # Para executáveis compilados, usar path absoluto
+                if getattr(sys, 'frozen', False):
+                    base_path = os.path.dirname(sys.executable)
+                    ffmpeg_path = os.path.join(base_path, '_internal', 'ffmpeg', 'bin', 'ffmpeg.exe')
+                    if os.path.exists(ffmpeg_path):
+                        ydl_opts['ffmpeg_location'] = ffmpeg_path
+                    else:
+                        # Fallback para biblioteca
+                        ydl_opts['prefer_ffmpeg'] = True
+                else:
+                    ydl_opts['prefer_ffmpeg'] = True
+            except Exception as e:
+                logger.warning(f"Erro ao configurar FFmpeg: {e}")
         
         try:
             # Primeiro extrair informações
@@ -182,6 +220,24 @@ class GerenciadorDownload(QObject):
                 'Accept-Language': 'pt-BR,pt;q=0.9'
             }
         }
+        
+        # Configurar FFmpeg se disponível
+        if configurar_ffmpeg():
+            try:
+                import ffmpeg
+                # Para executáveis compilados, usar path absoluto
+                if getattr(sys, 'frozen', False):
+                    base_path = os.path.dirname(sys.executable)
+                    ffmpeg_path = os.path.join(base_path, '_internal', 'ffmpeg', 'bin', 'ffmpeg.exe')
+                    if os.path.exists(ffmpeg_path):
+                        ydl_opts['ffmpeg_location'] = ffmpeg_path
+                    else:
+                        # Fallback para biblioteca
+                        ydl_opts['prefer_ffmpeg'] = True
+                else:
+                    ydl_opts['prefer_ffmpeg'] = True
+            except Exception as e:
+                logger.warning(f"Erro ao configurar FFmpeg: {e}")
         
         try:
             # Primeiro extrair informações
